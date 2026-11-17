@@ -12,7 +12,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Показать файлы проекта
-        run: find . -type f -not -path './.git/*' | sort
+        run: |
+          find . -type f -not -path './.git/*' | sort
+          echo "=== app/build.gradle ==="
+          head -5 app/build.gradle || echo "ФАЙЛА app/build.gradle НЕТ"
+          echo "=== build.gradle в корне ==="
+          head -5 build.gradle || echo "ФАЙЛА build.gradle НЕТ"
 
       - uses: actions/setup-java@v4
         with:
