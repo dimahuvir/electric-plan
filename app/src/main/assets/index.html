@@ -91,6 +91,36 @@ textarea{width:100%;height:150px;font-size:12px}
 </div>
 <div id="pop" hidden></div>
 <script>
+// Совместимость со старыми версиями Android WebView.
+if (!Array.prototype.flatMap) {
+    Array.prototype.flatMap = function(fn, thisArg) {
+        return Array.prototype.concat.apply(
+            [],
+            Array.prototype.map.call(this, fn, thisArg)
+        );
+    };
+}
+
+// Показываем ошибки запуска прямо на экране.
+window.addEventListener('error', function(e) {
+    const el = document.getElementById('empty');
+
+    if (!el) return;
+
+    el.textContent =
+        'Ошибка запуска: ' +
+        (e.message || 'неизвестная ошибка') +
+        ' · строка ' +
+        (e.lineno || '?') +
+        '. Перезапусти приложение и пришли этот текст.';
+
+    el.style.pointerEvents = 'auto';
+    el.style.background = 'rgba(255,255,255,.94)';
+    el.style.padding = '10px';
+    el.style.borderRadius = '8px';
+    el.style.zIndex = '20';
+});
+  
 let K=.5,U=1,Q=1,FIT=1,uid=1;
 const TN={o:'Розетка',s:'Выключатель',p:'Проходной (аллер-ретур)',l:'LED-спираль',x:'Другое'},TS={o:'розетка',s:'выкл.',p:'проходной',l:'LED',x:'другое'},TB={o:'Розетка',s:'Выкл.',p:'Проход.',l:'LED',x:'Другое'},TC={o:'#d2331f',s:'#1f7ad2',p:'#0e9aa7',l:'#8a2be2',x:'#2a8f4e'},QI={o:'●',s:'■',p:'◐',l:'〰',x:'◇'};
 const WC={brown:'#8b5a2b',blue:'#2b6fdd',yg:'#9ac52e',red:'#d22',black:'#222'},CN={brown:'коричневый',blue:'синий',yg:'жёлто-зелёный',red:'красный',black:'чёрный'},CNS={brown:'коричн.',blue:'синий',yg:'жёл-зел.',red:'красный',black:'чёрный'};
