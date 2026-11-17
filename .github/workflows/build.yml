@@ -11,14 +11,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Показать файлы проекта
-        run: |
-          find . -type f -not -path './.git/*' | sort
-          echo "=== app/build.gradle ==="
-          head -5 app/build.gradle || echo "ФАЙЛА app/build.gradle НЕТ"
-          echo "=== build.gradle в корне ==="
-          head -5 build.gradle || echo "ФАЙЛА build.gradle НЕТ"
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -29,7 +21,65 @@ jobs:
           gradle-version: '8.7'
 
       - name: Build debug APK
-        run: gradle :app:assembleDebug --no-daemon
+        run: |
+          mkdir -p app
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "ElectricPlan"
+          include ':app'
+          EOF
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.5.2' apply false
+          }
+          EOF
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          EOF
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+          android {
+              namespace 'com.tbbg.electricplan'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.tbbg.electricplan"
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          dependencies {
+              implementation 'androidx.webkit:webkit:1.11.0'
+          }
+          EOF
+          gradle :app:assembleDebug --no-daemon || { echo "=== ФАЙЛЫ В РЕПОЗИТОРИИ ==="; find . -type f -not -path './.git/*' -not -path './app/build/*' -not -path './.gradle/*' | sort; exit 1; }
 
       - uses: actions/upload-artifact@v4
         with:
