@@ -141,7 +141,173 @@ const S={ri:0,cw:0,pop:null,qg:1,qo:'h',hist:[],vx:-25,vy:-35,z:1,tt:'pipes',ts:
 const newWall=()=>({len:400,h:250,touched:false,b:[]});
 const newRoom=(name,n)=>({name,n,w:[newWall(),newWall(),newWall(),newWall()],p:{w:0,x:100,h:150},pairs:[]});
 const mkBox=(x,t)=>({id:uid++,x,ts:[t],or:'h',pc:null,fr:'L',hc:null,js:'10x10',name:'',np:false});
-function load(){try{const j=JSON.parse(localStorage.getItem(SK)||'null');if(j&&j.P&&j.P.rooms&&j.P.rooms.length){P=j.P;S.ri=Math.min(j.ri||0,P.rooms.length-1);uid=Math.max(uid,j.uid||1);return true;}}catch(e){}return false;}
+
+function load() {
+    try {
+        const j = JSON.parse(localStorage.getItem(SK) || 'null');
+
+        if (!j || !j.P ||
+            !Array.isArray(j.P.rooms) ||
+            !j.P.rooms.length) {
+            return false;
+        }
+
+        P = j.P;
+
+        P.name = typeof P.name === 'string'
+            ? P.name
+            : 'Проект 1';
+
+        P.hd = Object.assign(
+            {o:30, s:90, p:90, l:200, x:100},
+            P.hd && typeof P.hd === 'object' ? P.hd : {}
+        );
+
+        P.rooms = P.rooms.filter(
+            r => r && typeof r === 'object'
+        );
+
+        if (!P.rooms.length) return false;
+
+        const usedIds = new Set();
+        let maxId = 0;
+
+        P.rooms.forEach((rm, ri) => {
+            rm.name = typeof rm.name === 'string'
+                ? rm.name
+                : 'Комната ' + (ri + 1);
+
+            rm.n = clamp(
+                Math.round(Number(rm.n) || 2),
+                1,
+                4
+            );
+
+            if (!Array.isArray(rm.w)) rm.w = [];
+
+            while (rm.w.length < 4) {
+                rm.w.push(newWall());
+            }
+
+            rm.w = rm.w.slice(0, 4).map(w => {
+                w = w && typeof w === 'object'
+                    ? w
+                    : newWall();
+
+                w.len = Math.max(10, num(w.len) || 400);
+                w.h = Math.max(10, num(w.h) || 250);
+                w.touched = !!w.touched;
+
+                if (!Array.isArray(w.b)) w.b = [];
+
+                w.b = w.b
+                    .filter(b => b && typeof b === 'object')
+                    .map(b => {
+                        let id = Number(b.id);
+
+                        if (
+                            !Number.isInteger(id) ||
+                            id < 1 ||
+                            usedIds.has(id)
+                        ) {
+                            id = Math.max(maxId + 1, uid);
+
+                            while (usedIds.has(id)) id++;
+                        }
+
+                        usedIds.add(id);
+                        maxId = Math.max(maxId, id);
+
+                        b.id = id;
+                        b.x = clamp(num(b.x), 0, w.len);
+
+                        b.ts = Array.isArray(b.ts)
+                            ? b.ts.filter(t => TYPES.includes(t))
+                            : [];
+
+                        if (!b.ts.length) b.ts = ['o'];
+
+                        b.ts = b.ts.slice(0, 6);
+                        b.or = b.or === 'v' ? 'v' : 'h';
+                        b.pc = b.pc == null
+                            ? null
+                            : Math.max(1, Math.round(num(b.pc)));
+
+                        b.fr = b.fr === 'R' ? 'R' : 'L';
+                        b.hc = b.hc == null ? null : num(b.hc);
+
+                        b.js = typeof b.js === 'string'
+                            ? b.js
+                            : '10x10';
+
+                        b.name = typeof b.name === 'string'
+                            ? b.name
+                            : '';
+
+                        b.np = !!b.np;
+
+                        return b;
+                    });
+
+                return w;
+            });
+
+            rm.p = rm.p && typeof rm.p === 'object'
+                ? rm.p
+                : {w:0, x:100, h:150};
+
+            rm.p.w = clamp(
+                Math.round(num(rm.p.w)),
+                0,
+                rm.n - 1
+            );
+
+            rm.p.x = clamp(
+                num(rm.p.x),
+                0,
+                rm.w[rm.p.w].len
+            );
+
+            rm.p.h = Math.max(0, num(rm.p.h) || 150);
+
+            // Восстанавливаем пары проходных выключателей.
+            rm.pairs = Array.isArray(rm.pairs)
+                ? rm.pairs
+                    .filter(q =>
+                        q &&
+                        Number.isInteger(Number(q.a)) &&
+                        Number.isInteger(Number(q.b))
+                    )
+                    .map(q => ({
+                        a: Number(q.a),
+                        b: Number(q.b),
+                        name: String(q.name || 'А')
+                    }))
+                : [];
+        });
+
+        S.ri = clamp(
+            Math.floor(num(j.ri)),
+            0,
+            P.rooms.length - 1
+        );
+
+        uid = Math.max(
+            maxId + 1,
+            Math.floor(num(j.uid)) || 1
+        );
+
+        return true;
+
+    } catch (e) {
+        console.warn(
+            'Не удалось загрузить сохранённый проект:',
+            e
+        );
+
+        return false;
+    }
+    }
 function save(){try{localStorage.setItem(SK,JSON.stringify({P,ri:S.ri,uid}));S.saved=true;}catch(e){S.saved=false;}}
 function initP(){P={name:'Проект 1',rooms:[newRoom('Комната 1',2)],hd:{o:30,s:90,p:90,l:200,x:100}};S.ri=0;}
 if(!load())initP();
