@@ -1,8 +1,10 @@
+
 package com.tbbg.electricplan;
 
 import android.app.Activity;
 import android.os.Bundle;
 import android.webkit.WebChromeClient;
+import android.webkit.ConsoleMessage;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -30,26 +32,49 @@ public class MainActivity extends Activity {
         s.setBuiltInZoomControls(false);
 
         final WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
-                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .addPathHandler(
+                    "/assets/",
+                    new WebViewAssetLoader.AssetsPathHandler(this)
+                )
                 .build();
 
         web.setWebViewClient(new WebViewClient() {
             @Override
-            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+            public WebResourceResponse shouldInterceptRequest(
+                    WebView view,
+                    WebResourceRequest request
+            ) {
                 return loader.shouldInterceptRequest(request.getUrl());
             }
         });
-        web.setWebChromeClient(new WebChromeClient());
 
-        web.loadUrl("https://appassets.androidplatform.net/assets/index.html");
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage message) {
+                android.util.Log.e(
+                    "ElectricPlan",
+                    message.message() + " (" +
+                    message.sourceId() + ":" +
+                    message.lineNumber() + ")"
+                );
+                return true;
+            }
+        });
+
+        web.loadUrl(
+            "https://appassets.androidplatform.net/assets/index.html"
+        );
     }
 
     @Override
     public void onBackPressed() {
-        web.evaluateJavascript("(window.appBack && window.appBack()) ? '1' : '0'", value -> {
-            if (!"\"1\"".equals(value)) {
-                finish();
+        web.evaluateJavascript(
+            "(window.appBack && window.appBack()) ? '1' : '0'",
+            value -> {
+                if (!"\"1\"".equals(value)) {
+                    finish();
+                }
             }
-        });
+        );
     }
 }
