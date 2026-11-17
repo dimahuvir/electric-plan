@@ -7,21 +7,21 @@
   <style>
     :root{
       --bg:#0d1d3d;
-      --bg2:#111d3a;
+      --bg2:#101d3c;
       --grid:#2d4e8f;
-      --grid-soft:#243d75;
-      --line:#dfe9ff;
-      --card:rgba(255,255,255,0.12);
+      --grid-soft:#233d76;
+      --line:#e9f0ff;
+      --card:rgba(255,255,255,0.10);
       --btn:#f5f6fb;
       --btn-text:#0e1e3d;
       --accent:#2d4fdb;
-      --text:#eaf1ff;
-      --muted:#b8c8f7;
-      --shadow:rgba(0,0,0,.28);
+      --text:#edf4ff;
+      --muted:#b7c8f7;
+      --shadow:rgba(0,0,0,.2);
     }
 
-    *{box-sizing:border-box}
-    html,body{
+    * { box-sizing:border-box; }
+    html, body{
       width:100%;
       height:100%;
       margin:0;
@@ -33,9 +33,9 @@
 
     body{
       display:flex;
-      align-items:stretch;
       justify-content:center;
-      background:linear-gradient(#0d1d3d,#0b1835);
+      align-items:stretch;
+      background:linear-gradient(#0d1d3d, #091936);
     }
 
     #app{
@@ -54,10 +54,8 @@
       justify-content:space-between;
       padding:0 12px;
       color:#fff;
-      background:rgba(0,0,0,0.08);
-      border-bottom:1px solid rgba(255,255,255,0.2);
-      font-weight:700;
-      letter-spacing:0.02em;
+      background:rgba(0,0,0,0.06);
+      border-bottom:1px solid rgba(255,255,255,0.14);
       z-index:10;
     }
 
@@ -78,15 +76,6 @@
       letter-spacing:0.03em;
     }
 
-    .status-icons{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      font-size:14px;
-      color:#fff;
-      opacity:0.95;
-    }
-
     .status-right{
       display:flex;
       align-items:center;
@@ -98,12 +87,18 @@
     }
 
     .status-badge{
-      background:rgba(255,255,255,0.12);
-      border:1px solid rgba(255,255,255,0.3);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:28px;
+      height:22px;
+      padding:0 6px;
+      background:rgba(255,255,255,0.08);
+      border:1px solid rgba(255,255,255,0.35);
       border-radius:6px;
-      padding:4px 7px;
       font-size:12px;
       line-height:1;
+      color:#fff;
     }
 
     #stage{
@@ -114,8 +109,8 @@
       bottom:58px;
       overflow:hidden;
       background:var(--bg2);
-      border-top:1px solid rgba(255,255,255,0.2);
-      box-shadow:inset 0 0 0 1px rgba(141,172,230,0.18);
+      border-top:1px solid rgba(255,255,255,0.14);
+      box-shadow:inset 0 0 0 1px rgba(141,172,230,0.14);
     }
 
     #world{
@@ -133,7 +128,7 @@
       content:"";
       position:absolute;
       inset:0;
-      background:rgba(16,31,61,0.24);
+      background:rgba(8,19,39,0.18);
     }
 
     #zoom{
@@ -173,7 +168,7 @@
       display:flex;
       align-items:center;
       background:rgba(6,18,38,0.92);
-      border-top:2px solid rgba(255,255,255,0.3);
+      border-top:2px solid rgba(255,255,255,0.26);
       color:var(--text);
       padding:8px 12px 10px;
       z-index:10;
@@ -190,24 +185,9 @@
       opacity:0.96;
     }
 
-    .legend .dot{
-      display:inline-block;
-      width:8px;
-      height:8px;
-      border-radius:2px;
-      margin-right:6px;
-      vertical-align:middle;
-      background:#dfeaff;
-    }
-
-    .legend .dot.red{ background:#dfeaff; }
-    .legend .dot.blue{ background:#9fb8ff; }
-    .legend .dot.green{ background:#dfeaff; }
-
     .legend .item{
       display:flex;
       align-items:center;
-      opacity:0.95;
     }
 
     .legend .item i{
@@ -215,7 +195,7 @@
       width:10px;
       height:10px;
       margin-right:7px;
-      border:1px solid rgba(255,255,255,0.7);
+      border:1px solid rgba(255,255,255,0.72);
       background:transparent;
       transform:translateY(1px);
     }
@@ -229,7 +209,7 @@
       width:11px;
       height:11px;
       border-radius:2px;
-      background:rgba(255,255,255,0.55);
+      background:rgba(255,255,255,0.52);
     }
 
     .legend .item:nth-child(3) i{
@@ -258,8 +238,8 @@
     }
 
     @media (max-width:420px){
-      .status-left .time{ font-size:16px; }
-      .zoom-btn{ width:48px; height:48px; }
+      .status-left .time { font-size:16px; }
+      .zoom-btn { width:48px; height:48px; }
     }
   </style>
 </head>
@@ -282,11 +262,13 @@
 
     <div id="stage">
       <div id="empty"></div>
+
       <div id="zoom">
         <button class="zoom-btn" id="zp" type="button">＋</button>
         <button class="zoom-btn" id="zm" type="button">－</button>
         <button class="zoom-btn" id="zr" type="button">⌂</button>
       </div>
+
       <div id="world"></div>
     </div>
 
@@ -300,19 +282,22 @@
   </div>
 
   <script>
-    // Показываем ошибки запуска прямо на экране.
     window.addEventListener('error', function(e){
       const el = document.getElementById('empty');
       if (!el) return;
-      el.textContent = 'Ошибка запуска: ' + (e.message || 'неизвестная ошибка') + ' · строка ' + (e.lineno || '?') + '.';
+      el.textContent = 'Ошибка запуска: ' + (e.message || 'неизвестная ошибка') + ' · строка ' + (e.lineno || '?');
       el.style.display = 'block';
     });
 
     const stage = document.getElementById('world');
     let zoomLevel = 1;
 
-    function drawBaseGrid(){
-      const cells = [];
+    function applyZoom(){
+      stage.style.transform = 'scale(' + zoomLevel + ')';
+      stage.style.transformOrigin = 'center center';
+    }
+
+    function drawGrid(){
       const totalX = 28;
       const totalY = 30;
 
@@ -324,37 +309,30 @@
           cell.style.top = (y * 24) + 'px';
           cell.style.width = '24px';
           cell.style.height = '24px';
-          cell.style.borderLeft = '1px solid rgba(133, 166, 255, 0.5)';
-          cell.style.borderTop = '1px solid rgba(133, 166, 255, 0.5)';
-          cell.style.opacity = '0.3';
-          cells.push(cell);
+          cell.style.borderLeft = '1px solid rgba(133, 166, 255, 0.42)';
+          cell.style.borderTop = '1px solid rgba(133, 166, 255, 0.42)';
+          cell.style.opacity = '0.5';
+          stage.appendChild(cell);
         }
       }
-
-      cells.forEach(c => stage.appendChild(c));
     }
 
-    function applyZoom(){
-      stage.style.transform = `scale(${zoomLevel})`;
-      stage.style.transformOrigin = 'center center';
-    }
-
-    document.getElementById('zp').addEventListener('click', () => {
+    document.getElementById('zp').addEventListener('click', function(){
       zoomLevel = Math.min(1.8, zoomLevel + 0.15);
       applyZoom();
     });
 
-    document.getElementById('zm').addEventListener('click', () => {
+    document.getElementById('zm').addEventListener('click', function(){
       zoomLevel = Math.max(0.65, zoomLevel - 0.15);
       applyZoom();
     });
 
-    document.getElementById('zr').addEventListener('click', () => {
+    document.getElementById('zr').addEventListener('click', function(){
       zoomLevel = 1;
       applyZoom();
     });
 
-    drawBaseGrid();
+    drawGrid();
     applyZoom();
   </script>
 </body>
