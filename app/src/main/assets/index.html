@@ -84,12 +84,13 @@ textarea{width:100%;height:150px;font-size:12px}
 </style></head><body>
 <div id="app">
 <div id="top"></div>
-<div id="stage"><div id="empty"></div><div id="legend">● подрозетник · ■ распред. коробка · ▮ щиток</div>
+<div id="stage"><div id="empty" style="color:#e53935;font-weight:bold">Скрипт не запустился: файл index.html скопирован не полностью. Загрузи его заново через Upload files.</div><div id="legend">● подрозетник · ■ распред. коробка · ▮ щиток</div>
 <div id="zoom"><button id="zp">+</button><button id="zm">−</button><button id="zr">⌂</button></div>
 <div id="world"></div></div>
 <div id="dock"></div>
 </div>
 <div id="pop" hidden></div>
+<script>window.onerror=function(m,u,l){var e=document.getElementById("empty");if(e){e.style.color="#e53935";e.innerHTML="Ошибка: "+m+" (строка "+l+")";}};</script>
 <script>
 let K=.5,U=1,Q=1,FIT=1,uid=1;
 const TN={o:'Розетка',s:'Выключатель',p:'Проходной (аллер-ретур)',l:'LED-спираль',x:'Другое'},TS={o:'розетка',s:'выкл.',p:'проходной',l:'LED',x:'другое'},TB={o:'Розетка',s:'Выкл.',p:'Проход.',l:'LED',x:'Другое'},TC={o:'#d2331f',s:'#1f7ad2',p:'#0e9aa7',l:'#8a2be2',x:'#2a8f4e'},QI={o:'●',s:'■',p:'◐',l:'〰',x:'◇'};
@@ -240,4 +241,287 @@ function renderTop(){
 }
 function renderDock(){
   const w=CW(),R=ring();
-  $('dock').innerHTML
+  $('dock').innerHTML=`<div class="row2">${[...Array(CR.n).keys()].map(i=>`<button class="${S.cw==i?'on':''}" onclick="S.cw=${i};all()">Ст.${i+1}</button>`).join('')}<span class="hint">Стена ${S.cw+1}: ${w.len}×${w.h} см · мест: ${w.b.length}</span></div>`+
+  `<div class="qa">${TYPES.map(t=>`<button style="--c:${TC[t]}" onclick="addQuick('${t}')">${QI[t]}<small>${TB[t]}</small></button>`).join('')}</div>`+
+  `<div class="row2"><span class="hint">В группе:</span>${[1,2,3,4].map(k=>`<button class="${S.qg==k?'on':''}" onclick="S.qg=${k};all()">${k}</button>`).join('')}<button onclick="S.qo=S.qo=='h'?'v':'h';all()">${S.qo=='h'?'↔':'↕'}</button><button onclick="undo()">↶</button></div>`+
+  `<div class="chips">${w.b.length?w.b.slice().sort((p,q)=>p.x-q.x).map(o=>`<button class="${o.id==curId()?'on':''}" onclick="pick(${o.id})">${dotsH(o.ts)}№${R.lab(o.id)}${o.ts.length>1?' ×'+o.ts.length:''}</button>`).join(''):'<span class="hint">Пока пусто — нажми тип выше.</span>'}</div>`;
+}
+function renderEmpty(){
+  const n=CR.w.slice(0,CR.n).reduce((a,w)=>a+w.b.length,0);
+  $('empty').style.color='';$('empty').style.fontWeight='';$('empty').innerHTML=n?'':'Нажимай тип коробки внизу — она появится на выбранной стене. Всё остальное посчитается само.';
+}
+
+/* ---------- быстрый ввод ---------- */
+function respread(w){w.b.sort((a,b)=>a.x-b.x);w.b.forEach((b,i)=>b.x=Math.round(w.len*(i+1)/(w.b.length+1)));}
+function gapX(w,skip){
+  const xs=[0,...w.b.filter(b=>b!==skip).map(b=>b.x),w.len].sort((a,b)=>a-b);let best=0,bx=w.len/2;
+  for(let i=0;i<xs.length-1;i++){if(xs[i+1]-xs[i]>best){best=xs[i+1]-xs[i];bx=(xs[i]+xs[i+1])/2;}}
+  return Math.round(bx);
+}
+function addQuick(t){
+  const w=CW(),b=mkBox(0,t);b.ts=Array(S.qg).fill(t);b.or=S.qo;
+  w.b.push(b);if(!w.touched)respread(w);else b.x=gapX(w,b);
+  S.hist.push(b.id);all();
+}
+function undo(){
+  const id=S.hist.pop();if(id==null)return;
+  CR.w.forEach(w=>{const n=w.b.length;w.b=w.b.filter(b=>b.id!=id);if(w.b.length!=n&&!w.touched)respread(w);});
+  if(curId()==id)S.pop=null;all();
+}
+
+/* ---------- окна ---------- */
+function openPop(k,o){S.pop=Object.assign({k},o||{});S.cdel=null;all();}
+function closePop(){S.pop=null;all();}
+function pick(id){const o=boxById(id);if(!o)return;S.cw=o.wi;S.pop={k:'box',id,tab:o.b.ts.includes('p')?'back':'comp'};all();}
+function openWire(id){const o=boxById(id);if(!o)return;S.cw=o.wi;S.pop={k:'jb',id,tab:'sch'};all();}
+function setTab(t){if(t=='jb'){openWire(S.pop.id);return;}S.pop.tab=t;all();}
+let pkey='';
+function renderPop(){
+  const el=$('pop'),p=S.pop;
+  if(!p){el.hidden=true;pkey='';return;}
+  let r=null;
+  if(p.k=='box')r=popBox(p);else if(p.k=='jb')r=popJb(p);else if(p.k=='panel')r=popPanel();else if(p.k=='rooms')r=popRooms();else if(p.k=='room')r=popRoom();else if(p.k=='tot')r=popTot();else if(p.k=='io')r=popIo();
+  if(!r){S.pop=null;el.hidden=true;return;}
+  const key=p.k+':'+(p.id||'')+':'+(p.tab||''),old=$('popc'),sc=key==pkey&&old?old.scrollTop:0;pkey=key;
+  el.hidden=false;el.className=r.modal?'modal':'sheet';
+  el.innerHTML=`<div class="dim"></div><div class="win"><div class="wh2"><b>${r.title}</b><button class="x" onclick="closePop()" aria-label="Закрыть">✕</button></div>${r.tabs||''}<div class="pc" id="popc">${r.body}</div></div>`;
+  $('popc').scrollTop=sc;
+}
+
+/* подрозетник */
+function pairUI(R,b){
+  if(!b.ts.includes('p'))return '';
+  const pi=pairInfo(b.id);let h='<div class="q">Проходной выключатель — с двух мест</div>';
+  if(pi){const po=boxById(pi.partner);
+    h+=`<div class="hint">Пара «${esc(pi.pname)}»: эта коробка — «${esc(pi.name)}», вторая — «${esc(pi.partnerName)}» (№${R.lab(pi.partner)}, стена ${po.wi+1}). Нашлись сами.</div><div class="row"><label>Буква пары<input type="text" style="width:80px" value="${esc(pi.pname)}" onchange="renPair(${pi.p.a},this.value)"></label><button onclick="pick(${pi.partner})">→ Вторая</button><button class="danger" onclick="unpair(${b.id})">Разорвать</button></div>`;
+  }else h+='<div class="hint">Пока без пары. Как только появится второй проходной — они найдут друг друга сами (А и А1, потом В и В1).</div>';
+  const cand=[];CR.w.slice(0,CR.n).forEach((w,wi)=>w.b.forEach(o=>{if(o.id!=b.id&&o.ts.includes('p')&&(!pi||o.id!=pi.partner))cand.push([o.id,`№${R.lab(o.id)} · ст.${wi+1}`]);}));
+  if(cand.length)h+=`<div class="hint">Связать с другим:</div><div class="row">${cand.map(c=>`<button onclick="mkPair(${b.id},${c[0]})">${c[1]}</button>`).join('')}</div>`;
+  return h;
+}
+const BT=[['comp','Состав'],['pos','Место'],['pipe','Трубы'],['back','Сзади'],['jb','Коробка ▣']];
+function popBox(p){
+  const o=boxById(p.id);if(!o)return null;
+  const b=o.b,w=CR.w[o.wi],R=ring(),pi=b.ts.includes('p')?pairInfo(b.id):null,tab=p.tab||'comp',g=b.ts.length;
+  let body='';
+  if(tab=='comp'){
+    body=`<div class="q">Сколько коробок рядом: ${g} — ${GN[g]}</div>${seg([1,2,3,4,5,6].map(k=>[k,k]),g,v=>`eb('g',${v})`)}`+
+    (g>1?`<div class="hint">Как стоят</div>${seg([['h','↔ горизонтально'],['v','↕ вертикально']],b.or,v=>`eb('or','${v}')`)}`:'')+
+    `<div class="q">Что это</div>${b.ts.map((t,k)=>(g>1?`<div class="hint">Элемент ${LET[k]}</div>`:'')+tseg(t,v=>`et(${k},'${v}')`)).join('')}`+
+    pairUI(R,b)+
+    `<div class="q">Подпись</div><input type="text" style="width:100%" placeholder="например: розетка у стола" value="${esc(b.name)}" onchange="eb('name',this.value)"><div class="hint">Если написать «розетка», «выключатель», «проходной» или «спираль», тип и высота выберутся сами.</div>`;
+  }else if(tab=='pos'){
+    const pos=b.fr=='R'?w.len-b.x:b.x;
+    body=`<div class="q">Подвинуть по стене</div>${seg(NUDGE,null,v=>`nudge(${v})`)}<div class="hint">Расстояние считать от:</div>${seg([['L','левого края'],['R','правого края']],b.fr,v=>`eb('fr','${v}')`)}`+
+    `<div class="row"><label>Расстояние, см<input type="number" value="${Math.round(pos)}" onchange="eb('pos',this.value)"></label><label>Высота от пола, см${b.hc==null?' (авто)':''}<input type="number" value="${bh(b)}" onchange="eb('hc',this.value)"></label>${b.hc!=null?`<button onclick="eb('hc','')">Авто</button>`:''}</div>`+
+    `<div class="row"><button onclick="near(-1)">+ коробка слева</button><button onclick="near(1)">+ коробка справа</button><button class="danger" onclick="delBox()">Удалить</button></div>`;
+  }else if(tab=='pipe'){
+    const pc=pcOf(b);
+    body=`<div class="q">Труб на это место: ${pc}${b.pc==null?' (авто)':''}</div><div class="hint">${pipeInfo(b)}</div>${stp(`eb('pc',${Math.max(1,pc-1)})`,pc,`eb('pc',${pc+1})`)}${b.pc!=null?`<button onclick="eb('pc','')">Вернуть авто</button>`:''}`+
+    `<div class="hint">Правила: у каждого типа в группе своя труба. Розетки: 1–3 шт — 1 труба, с 4 — +1. Выключатели и проходные: 1–2 шт — 1 труба, с 3 — +1. Каждая LED-спираль — отдельная труба.</div>`;
+  }else body=tabBack(R,b,pi);
+  return {modal:false,title:`${dotsH(b.ts)} Подрозетник №${R.lab(b.id)}${pi?' · «'+esc(pi.name)+'»':''}`,tabs:tabsH(BT,tab,v=>`setTab('${v}')`),body};
+}
+
+/* вид сзади */
+const tipS=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.5" fill="#d98a3a"/>`;
+const screwS=(x,y)=>`<circle cx="${x}" cy="${y}" r="9" fill="#cfcfcf" stroke="#555" stroke-width="1.5"/><line x1="${x-5}" y1="${y}" x2="${x+5}" y2="${y}" stroke="#555" stroke-width="2"/>`;
+const nbS=(x,y,n)=>`<circle cx="${x}" cy="${y}" r="8" fill="#fff" stroke="#000"/><text x="${x}" y="${y+4}" font-size="11" font-weight="bold" text-anchor="middle" fill="#000">${n}</text>`;
+const blk=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="#555"/>`;
+function rearSvg(t){
+  const sheath='<rect x="36" y="188" width="128" height="18" rx="8" fill="#9aa0ad" stroke="#666" stroke-width="1.5"/>';
+  const body=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="14" fill="#e6e2d6" stroke="#6b6b6b" stroke-width="2"/><rect x="${x-12}" y="${y+h/2-14}" width="12" height="28" fill="#bdb8a8" stroke="#888"/><rect x="${x+w}" y="${y+h/2-14}" width="12" height="28" fill="#bdb8a8" stroke="#888"/>`;
+  let s='',d=[];
+  if(t=='o'){
+    s=body(30,12,140,160)+'<circle cx="100" cy="92" r="46" fill="#d6d2c4" stroke="#888"/><rect x="88" y="24" width="24" height="8" fill="#bbb" stroke="#888"/><rect x="88" y="150" width="24" height="8" fill="#bbb" stroke="#888"/>'+blk(36,76,34,32)+screwS(53,92)+blk(130,76,34,32)+screwS(147,92)+
+    wp('brown','M70,190 L70,150 L53,108')+wp('blue','M130,190 L130,150 L147,108')+wp('yg','M100,190 L100,160')+tipS(48,102,10,6)+tipS(142,102,10,6)+nbS(53,66,1)+nbS(147,66,2)+nbS(124,154,3);
+    d=[['brown','фаза L'],['blue','ноль N'],['yg','земля PE (контакт заземления)']];
+  }else if(t=='s'){
+    s=body(30,12,140,150)+blk(42,92,40,34)+screwS(62,109)+blk(118,92,40,34)+screwS(138,109)+wp('brown','M62,190 L62,128')+wp('red','M138,190 L138,128')+tipS(57,124,10,6)+tipS(133,124,10,6)+nbS(62,80,1)+nbS(138,80,2);
+    d=[['brown','вход, фаза L'],['red','выход к светильнику']];
+  }else if(t=='p'){
+    s=body(30,12,140,160)+blk(36,70,40,34)+screwS(56,87)+blk(124,36,40,34)+screwS(144,53)+blk(124,106,40,34)+screwS(144,123)+
+    wp('brown','M56,190 L56,106')+wp('red','M120,190 L120,152 L106,152 L106,53 L124,53')+wp('black','M144,190 L144,142')+tipS(51,102,10,6)+tipS(116,48,8,10)+tipS(139,138,10,6)+nbS(56,58,1)+nbS(144,26,2)+nbS(144,152,3);
+    d=[['brown','общий (L)'],['red','ход 1 (перемычка)'],['black','ход 2 (перемычка)']];
+  }else if(t=='l'){
+    s=body(50,40,100,100)+blk(58,70,36,30)+screwS(76,85)+blk(106,70,36,30)+screwS(124,85)+wp('brown','M76,190 L76,102')+wp('blue','M124,190 L124,102')+tipS(71,98,10,6)+tipS(119,98,10,6)+nbS(76,58,1)+nbS(124,58,2);
+    d=[['brown','фаза L'],['blue','ноль N']];
+  }else{
+    s=body(20,50,160,100)+[30,82,134].map(x=>blk(x,80,36,30)+screwS(x+18,95)).join('')+wp('brown','M48,190 L48,112')+wp('blue','M100,190 L100,112')+wp('yg','M152,190 L152,112')+tipS(43,108,10,6)+tipS(95,108,10,6)+tipS(147,108,10,6)+nbS(48,68,1)+nbS(100,68,2)+nbS(152,68,3);
+    d=[['brown','фаза L'],['blue','ноль N'],['yg','земля PE']];
+  }
+  return {svg:`<svg viewBox="0 0 200 210">${s}${sheath}</svg>`,desc:d};
+}
+const wp=(c,d)=>c=='yg'?`<path d="${d}" fill="none" stroke="#e8d800" stroke-width="4.5"/><path d="${d}" fill="none" stroke="#2a8f2a" stroke-width="4.5" stroke-dasharray="5 4"/>`:`<path d="${d}" fill="none" stroke="${WC[c]}" stroke-width="4.5" stroke-linejoin="round"/>`;
+function tabBack(R,b,pi){
+  const g=b.ts.length,sec=t=>t=='o'?'2,5':'1,5';
+  const items=b.ts.map((t,k)=>{const r=rearSvg(t);
+    return `<div class="rv"><div class="st">${g>1?'Элемент '+LET[k]+' · ':''}${TN[t]} — вид сзади</div>${r.svg}<ol class="tl">${r.desc.map(x=>`<li><span class="sw" style="background:${WC[x[0]]}"></span>${CN[x[0]]} — ${x[1]} · ${sec(t)} мм²</li>`).join('')}</ol></div>`;});
+  let note='';
+  if(b.ts.includes('p'))note=pi?`<div class="hint">Пара «${esc(pi.pname)}»: это «${esc(pi.name)}», вторая — «${esc(pi.partnerName)}». Красный провод соединяется с красным второго, чёрный — с чёрным. ${pi.role=='A'?'Общий этого выключателя получает фазу из щитка.':'Общий этого выключателя уходит на светильник.'}</div>`:`<div class="hint">Пара ещё не найдена: нужен второй проходной выключатель.</div>`;
+  return `<div class="rvs">${items.join('')}</div>${note}`;
+}
+
+/* распределительная коробка */
+function jointsOf(t,pi,k){
+  const J=(ec,ed,ek,lc,ld)=>({ext:[ec,ed,ek],loc:[lc,ld,'e'],el:k});
+  if(t=='o')return [J('brown','Щиток · фаза L','p','brown','Розетка · L'),J('blue','Щиток · ноль N','p','blue','Розетка · N'),J('yg','Щиток · земля PE','p','yg','Розетка · PE')];
+  if(t=='s')return [J('brown','Щиток · фаза L','p','brown','Выкл. · вход'),J('brown','К светильнику · L','l','red','Выкл. · выход')];
+  if(t=='l')return [J('brown','Щиток · фаза L','p','brown','LED · фаза'),J('blue','Щиток · ноль N','p','blue','LED · ноль')];
+  if(t=='x')return [J('brown','Щиток · фаза L','p','brown','Другое · L'),J('blue','Щиток · ноль N','p','blue','Другое · N'),J('yg','Щиток · земля PE','p','yg','Другое · PE')];
+  const A=!pi||pi.role=='A',tr='Перемычка '+(A?'→ ':'← ')+(pi?pi.partnerName:'в пару');
+  return A?[J('brown','Щиток · фаза L','p','brown','Проходной · общий'),J('red',tr,'j','red','Проходной · ход 1'),J('black',tr,'j','black','Проходной · ход 2')]
+          :[J('red',tr,'j','red','Проходной · ход 1'),J('black',tr,'j','black','Проходной · ход 2'),J('brown','К светильнику · L','l','brown','Проходной · общий')];
+}
+const jbRows=b=>{const pi=b.ts.includes('p')?pairInfo(b.id):null;return b.ts.flatMap((t,k)=>jointsOf(t,pi,k));};
+function jbSvg(rows){
+  const PH=34,n=rows.length,H=n*PH+20,fx=50,fw=260,cx=fx+fw/2;
+  let s=`<rect x="${fx}" y="6" width="${fw}" height="${H-12}" rx="12" fill="#efe9d8" stroke="#6b6b6b" stroke-width="2.5"/>`;
+  ['ext','loc'].forEach(side=>{let i=0;
+    while(i<n){let j=i;const key=rows[i][side][2]+'|'+rows[i].el;while(j+1<n&&rows[j+1][side][2]+'|'+rows[j+1].el==key)j++;
+      const y1=10+i*PH+4,y2=10+(j+1)*PH-4;
+      s+=side=='ext'?`<rect x="6" y="${y1}" width="${fx+8}" height="${y2-y1}" rx="9" fill="#9aa0ad" stroke="#666" stroke-width="1.5"/>`:`<rect x="${fx+fw-8}" y="${y1}" width="${360-(fx+fw-8)-6}" height="${y2-y1}" rx="9" fill="#9aa0ad" stroke="#666" stroke-width="1.5"/>`;
+      i=j+1;}});
+  rows.forEach((r,i)=>{const y=10+i*PH+PH/2;
+    s+=wp(r.ext[0],`M${fx+6},${y} L${cx-30},${y}`)+tipS(cx-40,y-2.5,12,5)+wp(r.loc[0],`M${cx+30},${y} L${fx+fw-6},${y}`)+tipS(cx+28,y-2.5,12,5);
+    s+=`<rect x="${cx-24}" y="${y-12}" width="48" height="24" rx="5" fill="#f2f2ee" stroke="#777" stroke-width="1.5"/><rect x="${cx-18}" y="${y-15}" width="36" height="6" rx="2" fill="#f08a1c"/><text x="${cx}" y="${y+5}" font-size="12" font-weight="bold" text-anchor="middle" fill="#333">${i+1}</text>`;});
+  return `<svg viewBox="0 0 360 ${H}">${s}</svg>`;
+}
+function popJb(p){
+  const o=boxById(p.id);if(!o)return null;
+  const b=o.b,R=ring(),rd=isRd(R,b),pi=b.ts.includes('p')?pairInfo(b.id):null,tab=p.tab||'sch',dm=jbDim(b.js);
+  let body='';
+  if(tab=='sch'){
+    const rows=jbRows(b);
+    const lines=rows.map((r,i)=>`<li value="${i+1}">${CNS[r.ext[0]]} (${esc(r.ext[1])}) + ${CNS[r.loc[0]]} (${esc(r.loc[1])})</li>`).join('');
+    body=`<div class="jbw">${jbSvg(rows)}</div><div class="hint">Серые — кабели, оранжевые рычажки — клеммы. Номер на клемме совпадает с описанием.</div><ol class="tl">${lines}</ol>`+
+    `<div class="hint">Всего ${rows.length} соединений (клеммы на 2 провода). Кабели: из щитка${rows.some(r=>r.ext[2]=='l')?', к светильнику':''}${rows.some(r=>r.ext[2]=='j')?', перемычки пары':''} и от подрозетника. Ноль и землю светильника выключатель не коммутирует — их соединяют отдельно.</div>`+
+    `<div class="row"><button onclick="pick(${b.id})">● Подрозетник №${R.lab(b.id)} →</button></div>`;
+  }else{
+    body=`<div class="hint">${rd?'Круглая: стоит на краю ряда над одиночной розеткой или выключателем. ':''}Выбери размер — на стене коробка сразу изменится.</div>${seg(JS.map(k=>[k,k.replace('x','×')]),b.js,v=>`setJs('${v}')`)}`+
+    `<div class="row"><label>Другой размер<input type="text" style="width:130px" placeholder="например 15x15" value="${JS.includes(b.js)?'':esc(b.js)}" onchange="setJs(this.value)"></label></div>`+
+    `<div class="hint">Так она выглядит на стене:</div><div class="pv" style="width:${Math.min(dm[0]*4,240)}px;height:${Math.min(dm[1]*4,240)}px">${dm[2]}</div>`;
+  }
+  return {modal:true,title:`<span style="display:inline-block;width:16px;height:16px;background:#e8b100;border:1.5px solid #000;vertical-align:middle;margin-right:6px;${rd?'border-radius:50%;background:#fff':''}"></span>Распред. коробка над №${R.lab(b.id)} · ${rd?'круглая':b.js.replace('x','×')}`,tabs:tabsH([['sch','Схема'],['size','Размер']],tab,v=>`S.pop.tab='${v}';all()`),body};
+}
+function setJs(v){const o=curO();if(o){o.b.js=String(v).trim()||'10x10';all();}}
+
+/* щиток */
+function popPanel(){
+  const R=ring(),w=CR.w[R.pw];
+  return {modal:false,title:'<span style="display:inline-block;width:16px;height:16px;background:#444;border:1.5px solid #000;vertical-align:middle;margin-right:6px"></span>Щиток',tabs:'',body:
+  `<div class="hint">Сюда сходятся все трубы. Пришло: ${R.nA?(R.two?'слева ':'')+R.nA+' тр.':''}${R.nB?' · справа '+R.nB+' тр.':''} · всего ${R.N}.</div>`+
+  `<div class="q">На какой стене</div>${seg([...Array(CR.n).keys()].map(i=>[i,'Стена '+(i+1)]),R.pw,v=>`CR.p.w=${v};CR.p.x=Math.min(CR.p.x,CR.w[${v}].len);all()`)}`+
+  `<div class="q">Подвинуть по стене</div>${seg(NUDGE,null,v=>`nudgeP(${v})`)}`+
+  `<div class="row"><label>От левого края стены, см<input type="number" value="${CR.p.x}" onchange="CR.p.x=clamp(num(this.value),0,${w.len});all()"></label><label>Высота центра, см<input type="number" value="${CR.p.h}" onchange="CR.p.h=num(this.value);all()"></label></div>`};
+}
+
+/* комнаты */
+const stenW=n=>n==1?'стена':n<5?'стены':'стен';
+function popRooms(){
+  let h=`<div class="row"><label>Проект<input type="text" value="${esc(P.name)}" onchange="P.name=this.value;all()"></label></div><div class="q">Комнаты проекта</div>`;
+  P.rooms.forEach((rm,i)=>{const cnt=rm.w.slice(0,rm.n).reduce((a,w)=>a+w.b.length,0);
+    h+=`<div class="sec"><div class="row"><input type="text" style="flex:1;min-width:130px" value="${esc(rm.name)}" onchange="renRoom(${i},this.value)"><button class="${i==S.ri?'on':'go'}" onclick="setRoom(${i})">${i==S.ri?'Открыта':'Открыть'}</button></div><div class="hint">${rm.n} ${stenW(rm.n)} · мест для коробок: ${cnt}</div><div class="row"><button onclick="dupRoom(${i})">Копия</button><button class="danger" onclick="delRoom(${i})">${S.cdel==i?'Точно удалить?':'Удалить'}</button></div></div>`;});
+  h+=`<div class="q">Новая комната</div><div class="row"><label>Название<input type="text" id="nrn" style="width:170px" placeholder="Комната ${P.rooms.length+1}"></label></div><div class="hint">Сколько стен:</div>${seg([1,2,3,4].map(k=>[k,k]),S.nn,v=>`S.nn=${v};keepName();all()`)}<div class="row"><button class="go" onclick="createRoom()">+ Создать комнату</button><button onclick="openPop('io')">Копия проекта</button></div>`;
+  return {modal:true,title:'Комнаты',tabs:'',body:h};
+}
+function keepName(){const e=$('nrn');S.nname=e?e.value:'';}
+function setRoom(i){S.ri=i;CR=P.rooms[i];S.cw=0;S.hist=[];S.pop=null;S.cdel=null;all();}
+function renRoom(i,v){P.rooms[i].name=v.trim()||P.rooms[i].name;all();}
+function createRoom(){const e=$('nrn'),name=(e&&e.value.trim())||'Комната '+(P.rooms.length+1);P.rooms.push(newRoom(name,S.nn));setRoom(P.rooms.length-1);}
+function dupRoom(i){const c=JSON.parse(JSON.stringify(P.rooms[i]));c.name+=' (копия)';P.rooms.splice(i+1,0,c);setRoom(i+1);}
+function delRoom(i){if(P.rooms.length<2)return;if(S.cdel!=i){S.cdel=i;all();return;}P.rooms.splice(i,1);S.ri=Math.min(S.ri,P.rooms.length-1);CR=P.rooms[S.ri];S.cw=0;S.hist=[];S.cdel=null;all();}
+function popIo(){
+  const txt=S.io||JSON.stringify({P,ri:S.ri});
+  return {modal:true,title:'Копия проекта',tabs:'',body:`<div class="hint">Скопируй этот текст и сохрани в заметки — это резервная копия. Чтобы вернуть проект, вставь текст сюда и нажми «Загрузить».</div><textarea id="iot">${esc(txt)}</textarea><div class="row"><button class="go" onclick="loadIo()">Загрузить</button><button onclick="S.io='';all()">Обновить текст</button></div>`};
+}
+function loadIo(){try{const j=JSON.parse($('iot').value);if(!j.P||!j.P.rooms||!j.P.rooms.length)throw 0;P=j.P;S.ri=Math.min(j.ri||0,P.rooms.length-1);CR=P.rooms[S.ri];S.cw=0;S.hist=[];S.pop=null;all();}catch(e){alert('Не получилось прочитать текст проекта.');}}
+function popRoom(){
+  let h=`<div class="row"><label>Название<input type="text" style="width:190px" value="${esc(CR.name)}" onchange="renRoom(${S.ri},this.value)"></label></div><div class="q">Сколько стен в комнате</div>${seg([1,2,3,4].map(k=>[k,k]),CR.n,v=>`setRN(${v})`)}<div class="hint">1 — прямая, 2 — буква Г, 3 — буква П, 4 — квадрат.</div><div class="q">Размеры стен</div>`;
+  for(let i=0;i<CR.n;i++){const w=CR.w[i];h+=`<div class="row"><b>Стена ${i+1}</b><label>Длина, см<input type="number" value="${w.len}" onchange="uw(${i},'len',this.value)"></label><label>Высота, см<input type="number" value="${w.h}" onchange="uw(${i},'h',this.value)"></label></div>`;}
+  h+=`<div class="q">Высоты по умолчанию (от пола, см)</div><div class="row">${TYPES.map(k=>`<label>${TS[k]}<input type="number" style="width:70px" value="${P.hd[k]}" onchange="P.hd['${k}']=num(this.value);all()"></label>`).join('')}</div><div class="row"><button onclick="openPop('panel')">▮ Настроить щиток</button></div>`;
+  return {modal:true,title:'Комната: настройки',tabs:'',body:h};
+}
+function setRN(n){CR.n=n;S.cw=Math.min(S.cw,n-1);CR.p.w=Math.min(CR.p.w,n-1);all();}
+function uw(i,k,v){const w=CR.w[i];w[k]=Math.max(10,num(v));if(k=='len'){if(!w.touched)respread(w);else w.b.forEach(b=>b.x=Math.min(b.x,w.len));}all();}
+
+/* итоги */
+function calc(rm){return withRoom(rm,()=>{
+  const R=ring(),pw=CR.w[R.pw],tot={},js={},cnt={};let pipes=0,rb=0;
+  const rows=R.all.slice().sort((a,b)=>R.br[a.b.id]!=R.br[b.b.id]?(R.br[a.b.id]>R.br[b.b.id]?1:-1):R.nm[a.b.id]-R.nm[b.b.id]).map(o=>{
+    const b=o.b,w=CR.w[o.wi],pc=pcOf(b),len=Math.abs((w.h-30)-bh(b))+Math.abs(o.s-R.sp)+Math.abs((pw.h-30)-CR.p.h),pi=b.ts.includes('p')?pairInfo(b.id):null;
+    pipes+=len*pc;
+    if(isRd(R,b))rb++;else js[b.js]=(js[b.js]||0)+1;
+    b.ts.forEach(t=>{cnt[t]=(cnt[t]||0)+1;WIRES[t].forEach(([c,s])=>{const k=c+'|'+s;tot[k]=(tot[k]||0)+len+15+50;});});
+    return {lab:R.lab(b.id),b,wi:o.wi,pc,len,pi};});
+  return {rm,R,rows,tot,js,cnt,rb,pipes};
+});}
+const GNn=g=>GN[g];
+function refTable(){return `<table><tr><th>Тип</th><th>Провода</th><th>Что с чем</th></tr>${TYPES.map(t=>`<tr><td>${TN[t]}</td><td>${WIRES[t].map(([c])=>`<span class="sw" style="background:${WC[c]}"></span>${CN[c]}`).join('<br>')}<br><b>${WIRES[t].length} × ${fmt(WIRES[t][0][1])} мм²</b></td><td>${WHERE[t]}</td></tr>`).join('')}</table>`;}
+function popTot(){
+  const all1=S.ts=='all',D=(all1?P.rooms:[CR]).map(calc);
+  const tab=S.tt,agg=(k)=>{const r={};D.forEach(d=>Object.keys(d[k]).forEach(x=>r[x]=(r[x]||0)+d[k][x]));return r;};
+  let body='';
+  if(tab=='pipes'){
+    if(!all1){const d=D[0],R=d.R;
+      if(!R.G)body='<div class="hint">В этой комнате пока нет коробок.</div>';
+      else{
+        body=`<table><tr><th>№</th><th>Что</th><th>Ст.</th><th>Выс.</th><th>Труб × м</th></tr>${d.rows.map(r=>`<tr><td>${r.lab}</td><td>${r.b.ts.length>1?GN[r.b.ts.length]+(r.b.or=='v'?' верт.':' гориз.')+': ':''}${r.b.ts.map(t=>TS[t]).join('+')}${r.pi?' «'+esc(r.pi.name)+'»':''}${r.b.name?' ('+esc(r.b.name)+')':''}</td><td>${r.wi+1}</td><td>${bh(r.b)}</td><td>${r.pc} × ${fmt((Math.round(r.len)/100).toFixed(2))}</td></tr>`).join('')}</table>`+
+        `<div class="q">Трубы в щиток</div><table>${R.nA?`<tr><td>Пришло ${R.two?'слева':'с одной стороны'}</td><td><b>${R.nA} тр.</b></td></tr>`:''}${R.nB?`<tr><td>Пришло справа</td><td><b>${R.nB} тр.</b></td></tr>`:''}<tr><td>Всего у щитка (стена ${R.pw+1})</td><td><b>${R.N} тр.</b></td></tr></table>`;
+        if(CR.n>1)body+=`<div class="q">Трубы на стыках стен</div><table>${withRoom(CR,()=>[...Array(CR.n-1).keys()].map(i=>`<tr><td>Стена ${i+1} → ${i+2}</td><td>${cntAt(R,R.cum[i+1])} тр.</td></tr>`).join(''))}</table>`;
+      }
+    }else body=`<table><tr><th>Комната</th><th>Мест</th><th>Труб у щитка</th><th>Труб, м</th></tr>${D.map(d=>`<tr><td>${esc(d.rm.name)}</td><td>${d.R.G}</td><td>${d.R.N}</td><td>${fmt((Math.ceil(d.pipes/10)/10).toFixed(1))}</td></tr>`).join('')}</table>`;
+    body+=`<div class="note">Труб всего: ${fmt((Math.ceil(D.reduce((a,d)=>a+d.pipes,0)/10)/10).toFixed(1))} м.</div>`;
+  }else if(tab=='wires'){
+    const tot=agg('tot');
+    body=`<table><tr><th>Цвет</th><th>Сечение</th><th>Метров</th></tr>${Object.keys(tot).sort().map(k=>{const [c,s]=k.split('|');return `<tr><td><span class="sw" style="background:${COL[c][1]}"></span>${COL[c][0]}</td><td>${fmt(s)} мм²</td><td>${fmt((Math.ceil(tot[k]*1.1/10)/10).toFixed(1))}</td></tr>`;}).join('')||'<tr><td colspan="3">Пока нет данных</td></tr>'}</table><div class="note">Провод на каждый элемент: длина трубы + 15 см в коробке + 50 см в щитке, запас 10%.</div>`;
+  }else if(tab=='boxes'){
+    const js=agg('js'),cnt=agg('cnt'),rb=D.reduce((a,d)=>a+d.rb,0);
+    body=`<div class="q">Распределительные коробки</div><table>${Object.keys(js).map(k=>`<tr><td>${esc(k.replace('x','×'))}</td><td>${js[k]} шт.</td></tr>`).join('')}${rb?`<tr><td>круглые (по краям, одиночные)</td><td>${rb} шт.</td></tr>`:''}${!Object.keys(js).length&&!rb?'<tr><td colspan="2">Пока нет данных</td></tr>':''}</table>`+
+    `<div class="q">Подрозетники (элементы)</div><table>${TYPES.filter(t=>cnt[t]).map(t=>`<tr><td>${TN[t]}</td><td>${cnt[t]} шт.</td></tr>`).join('')||'<tr><td colspan="2">Пока нет данных</td></tr>'}</table>`;
+  }else body=refTable();
+  const tabs=`<div class="tabs"><button class="${all1?'':'on'}" onclick="S.ts='room';all()">Эта комната</button><button class="${all1?'on':''}" onclick="S.ts='all';all()">Весь проект</button></div>`+tabsH([['pipes','Трубы'],['wires','Провода'],['boxes','Коробки'],['ref','Схемы']],tab,v=>`S.tt='${v}';all()`);
+  return {modal:true,title:'📊 Итоги · '+(all1?esc(P.name):esc(CR.name)),tabs,body};
+}
+
+/* ---------- действия ---------- */
+function all(){syncPairs();renderTop();renderDock();renderPop();draw3d();renderEmpty();save();}
+function near(d){const o=curO();if(!o)return;const w=CR.w[o.wi],b=mkBox(clamp(o.b.x+d*50,0,w.len),'o');w.b.push(b);w.touched=true;S.pop={k:'box',id:b.id,tab:'comp'};all();}
+function nudge(d){const o=curO();if(!o)return;o.b.x=clamp(o.b.x+d,0,CR.w[o.wi].len);CR.w[o.wi].touched=true;all();}
+function nudgeP(d){CR.p.x=clamp(CR.p.x+d,0,CR.w[CR.p.w].len);all();}
+function delBox(){const o=curO();if(!o)return;const w=CR.w[o.wi];w.b=w.b.filter(b=>b.id!=o.b.id);if(!w.touched)respread(w);S.pop=null;all();}
+function et(k,v){const o=curO();if(!o)return;CR.w[o.wi].touched=true;o.b.ts[k]=v;if(k==0)o.b.hc=null;all();}
+function eb(f,v){const o=curO();if(!o)return;const b=o.b,w=CR.w[o.wi];w.touched=true;
+  if(f=='g'){const k=+v;while(b.ts.length<k)b.ts.push(b.ts[b.ts.length-1]);b.ts.length=k;b.pc=null;}
+  else if(f=='pc'){b.pc=v===''?null:Math.max(1,Math.round(num(v)));}
+  else if(f=='name'){b.name=v;const g=guess(v);if(g){b.ts[0]=g;b.hc=null;}}
+  else if(f=='pos'){const p=clamp(num(v),0,w.len);b.x=b.fr=='R'?w.len-p:p;}
+  else if(f=='hc'){b.hc=v===''?null:num(v);}
+  else b[f]=v;
+  all();}
+
+/* ---------- жесты: вращение, щипок, тап ---------- */
+const st=$('stage'),ptr=new Map();let pd=null,mv=false,pdist=0,zq=0;
+const dist2=()=>{const a=[...ptr.values()];return a.length<2?0:Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);};
+const zsoft=()=>{if(!zq)zq=requestAnimationFrame(()=>{zq=0;draw3d();});};
+st.addEventListener('pointerdown',e=>{if(e.target.closest('#zoom'))return;ptr.set(e.pointerId,[e.clientX,e.clientY]);if(ptr.size==1){pd=[e.clientX,e.clientY];mv=false;}else{pdist=dist2();mv=true;}});
+st.addEventListener('pointermove',e=>{
+  if(!ptr.has(e.pointerId))return;ptr.set(e.pointerId,[e.clientX,e.clientY]);
+  if(ptr.size>=2){const nd=dist2();if(pdist>0){S.z=clamp(S.z*nd/pdist,.3,6);zsoft();}pdist=nd;return;}
+  if(!pd)return;const dx=e.clientX-pd[0],dy=e.clientY-pd[1];if(!mv&&Math.hypot(dx,dy)<8)return;mv=true;S.vy+=dx*.4;S.vx=clamp(S.vx-dy*.4,-85,85);pd=[e.clientX,e.clientY];view();});
+function endp(e,tap){
+  const had=ptr.has(e.pointerId);ptr.delete(e.pointerId);
+  if(had&&tap&&ptr.size==0&&pd&&!mv){const el=e.target.closest&&e.target.closest('[data-id],[data-pn]');
+    if(el){if(el.dataset.pn)openPop('panel');else if(el.classList.contains('jb'))openWire(+el.dataset.id);else pick(+el.dataset.id);}}
+  if(ptr.size==0){pd=null;pdist=0;}else if(ptr.size==1)pd=null;
+}
+st.addEventListener('pointerup',e=>endp(e,true));
+st.addEventListener('pointercancel',e=>endp(e,false));
+st.addEventListener('wheel',e=>{e.preventDefault();S.z=clamp(S.z*(e.deltaY<0?1.12:.89),.3,6);zsoft();},{passive:false});
+$('zp').onclick=()=>{S.z=clamp(S.z*1.25,.3,6);draw3d();};
+$('zm').onclick=()=>{S.z=clamp(S.z/1.25,.3,6);draw3d();};
+$('zr').onclick=()=>{S.z=1;S.vx=-25;S.vy=-35;draw3d();};
+window.addEventListener('resize',draw3d);
+window.appBack=()=>{if(S.pop){closePop();return true;}return false;};
+all();
+</script></body></html>
