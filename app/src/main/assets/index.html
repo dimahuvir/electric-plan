@@ -50,7 +50,7 @@ background-color:var(--bg);background-image:repeating-linear-gradient(0deg,trans
 #pop[hidden]{display:none}
 #pop .dim{position:absolute;inset:0;background:rgba(0,0,0,.5);pointer-events:auto}
 #pop.sheet .dim{display:none}
-#pop .win{position:absolute;left:0;right:0;bottom:0;max-height:62vh;background:var(--card);border-top:3px solid var(--acc);border-radius:16px 16px 0 0;display:flex;flex-direction:column;pointer-events:auto;box-shadow:0 -6px 22px rgba(0,0,0,.3)}
+#pop .win{position:absolute;left:0;right:0;bottom:0;max-height:50vh;background:var(--card);border-top:3px solid var(--acc);border-radius:16px 16px 0 0;display:flex;flex-direction:column;pointer-events:auto;box-shadow:0 -6px 22px rgba(0,0,0,.3)}
 #pop.modal .win{top:5vh;bottom:auto;left:50%;transform:translateX(-50%);width:min(580px,96vw);max-height:88vh;border:3px solid var(--acc);border-radius:16px}
 .wh2{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line)}
 .wh2 b{flex:1;font-size:16px}
@@ -108,7 +108,7 @@ const fmt=n=>String(n).replace('.',',');
 /* ---------- данные ---------- */
 const SK='elplan.v2';
 let P,CR;
-const S={ri:0,cw:0,pop:null,qg:1,qo:'h',hist:[],vx:-25,vy:-35,z:1,tt:'pipes',ts:'room',nn:3,cdel:null,io:'',saved:true};
+const S={ri:0,cw:0,px:0,py:0,shift:0,pop:null,qg:1,qo:'h',hist:[],vx:-25,vy:-35,z:1,tt:'pipes',ts:'room',nn:3,cdel:null,io:'',saved:true};
 const newWall=()=>({len:400,h:250,touched:false,b:[]});
 const newRoom=(name,n)=>({name,n,w:[newWall(),newWall(),newWall(),newWall()],p:{w:0,x:100,h:150},pairs:[]});
 const mkBox=(x,t)=>({id:uid++,x,ts:[t],or:'h',pc:null,fr:'L',hc:null,js:'10x10',name:'',np:false});
@@ -164,10 +164,15 @@ function ring(){
     ed[L[dr>0?0:n-1].b.id]=true;
     L.forEach((o,i)=>{nm[o.b.id]=dr>0?n-i:i+1;br[o.b.id]=dr>0?'Л':'П';bn[o.b.id]=n;});
   });
-  const two=A.length>0&&B.length>0;
-  return {cum,all,G:all.length,N:cnt(all),nA:cnt(A),nB:cnt(B),pA:A.flatMap(o=>pipeList(o.b)),pB:B.flatMap(o=>pipeList(o.b)),nm,br,ed,bn,two,pw,sp,lab:id=>(two?br[id]:'')+nm[id]};
+  const two=A.length>0&&B.length>0,wo={};all.forEach(o=>wo[o.b.id]=o.wi);
+  return {wo,cum,all,G:all.length,N:cnt(all),nA:cnt(A),nB:cnt(B),pA:A.flatMap(o=>pipeList(o.b)),pB:B.flatMap(o=>pipeList(o.b)),nm,br,ed,bn,two,pw,sp,lab:id=>(two?br[id]:'')+nm[id]};
 }
-const isRd=(R,b)=>!!R.ed[b.id]&&R.bn[b.id]>1&&b.ts.length==1&&(b.ts[0]=='o'||b.ts[0]=='s');
+const jbCm=js=>{const m=/(\d+(?:[.,]\d+)?)\D+(\d+(?:[.,]\d+)?)/.exec(js||'');return m?[parseFloat(m[1].replace(',','.')),parseFloat(m[2].replace(',','.'))]:[10,10];};
+const placeCm=b=>Math.max(jbCm(b.js)[0],b.or=='v'?7.1:b.ts.length*7.1);
+const tight=(w,b)=>w.b.some(o=>o!==b&&Math.abs(o.x-b.x)<(placeCm(o)+placeCm(b))/2+1);
+const extSingle=(R,b)=>!!R.ed[b.id]&&R.bn[b.id]>1&&b.ts.length==1&&(b.ts[0]=='o'||b.ts[0]=='s');
+const isRd=(R,b)=>extSingle(R,b)&&!tight(CR.w[R.wo[b.id]],b);
+const jsOf=(R,b)=>extSingle(R,b)&&tight(CR.w[R.wo[b.id]],b)?'7x7':b.js;
 function pipesAt(R,s){return R.all.filter(o=>s<=R.sp?o.s<=s:(o.s>=s&&o.s>R.sp)).flatMap(o=>pipeList(o.b));}
 const cntAt=(R,s)=>pipesAt(R,s).length;
 function jbDim(js){const m=/(\d+(?:[.,]\d+)?)\D+(\d+(?:[.,]\d+)?)/.exec(js||'');const a=m?parseFloat(m[1].replace(',','.')):10,b=m?parseFloat(m[2].replace(',','.')):10;return [clamp(a*1.6,11,40),clamp(b*1.6,11,40),a+'×'+b];}
@@ -176,12 +181,12 @@ function grpLay(w,b,L,H,ty,jh){
   const c=v?clamp(Math.floor((bot-top-(g-1)*gap)/g),cmin,cmax):clamp(Math.floor((L-6*Q-(g-1)*gap)/g),cmin,cmax);
   const tw=v?c:g*c+(g-1)*gap,th=v?g*c+(g-1)*gap:c;
   const cx=clamp(b.x*K,tw/2+3*Q,L-tw/2-3*Q),cy=clamp((w.h-bh(b))*K,top+th/2,bot-th/2);
-  return {c,cx,cy,top:cy-th/2};
+  return {c,cx,cy,top:cy-th/2,tw,th};
 }
 
 /* ---------- 3D ---------- */
 let C=[0,0];
-function view(){$('world').style.transform=`rotateX(${S.vx}deg) rotateY(${S.vy}deg) translate3d(${-C[0]}px,0,${-C[1]}px)`;}
+function view(){$('world').style.transform=`translate(${S.px}px,${S.py-S.shift}px) rotateX(${S.vx}deg) rotateY(${S.vy}deg) translate3d(${-C[0]}px,0,${-C[1]}px)`;}
 const ln=(x1,y1,x2,y2,c,w)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${w}"/>`;
 function draw3d(){
   const R=ring(),st=$('stage'),W=st.clientWidth||360,Hh=st.clientHeight||300;
@@ -203,9 +208,12 @@ function draw3d(){
       for(let q=0;q<m;q++){const o=ty+(q-(m-1)/2)*sp;sv+=ln(s.a*K,o,s.b*K,o,s.pl[q],lw);}
       if((s.b-s.a)*K>26*Q||s===longest)sv+=`<text x="${(s.a+s.b)/2*K}" y="${ty-(m-1)*sp/2-4*Q}" font-size="${fs}" font-weight="bold" text-anchor="middle" fill="currentColor" style="stroke:var(--bg);stroke-width:3px;paint-order:stroke">${c}</text>`;});
     const LY={};
-    w.b.forEach(b=>{const rd=isRd(R,b),dm=jbDim(b.js),ly=grpLay(w,b,L,H,ty,rd?22*Q:dm[1]*Q);LY[b.id]=ly;
-      const pl=pipeList(b),n=Math.min(pl.length,8);
-      for(let q=0;q<n;q++){const o=(q-(n-1)/2)*sp;sv+=ln(ly.cx+o,ty,ly.cx+o,ly.top,pl[q],lw);}});
+    const items=w.b.map(b=>{const rd=isRd(R,b),dm=jbDim(jsOf(R,b)),jw=(rd?22:dm[0])*Q,jh=(rd?22:dm[1])*Q,ly=grpLay(w,b,L,H,ty,jh);ly.pw=Math.max(ly.tw,jw);ly.rd=rd;ly.dm=dm;LY[b.id]=ly;return {b,ly,x:b.x*K};}).sort((a,c)=>a.x-c.x);
+    const gapPx=3*Q;
+    items.forEach((it,i)=>{it.p=Math.max(it.x,i?items[i-1].p+(items[i-1].ly.pw+it.ly.pw)/2+gapPx:0);});
+    for(let i=items.length-1;i>=0;i--){const it=items[i],hi=L-it.ly.pw/2-3*Q,lo=it.ly.pw/2+3*Q;it.p=Math.min(it.p,i<items.length-1?items[i+1].p-(items[i+1].ly.pw+it.ly.pw)/2-gapPx:hi,hi);it.p=Math.max(it.p,lo);}
+    items.forEach(it=>{it.ly.cx=it.p;const pl=pipeList(it.b),n=Math.min(pl.length,8);
+      for(let q=0;q<n;q++){const o=(q-(n-1)/2)*sp;sv+=ln(it.p+o,ty,it.p+o,it.ly.top,pl[q],lw);}});
     if(R.pw==i){const px=CR.p.x*K,py=(w.h-CR.p.h)*K,pw2=44*Q,ph=30*Q;
       pn=`<div class="pn${sk=='panel'?' sel':''}" data-pn="1" style="left:${px-pw2/2}px;top:${py-ph/2}px;width:${pw2}px;height:${ph}px;font-size:${13*Q}px;line-height:${ph-3}px">Щ</div>`;
       for(let q=0;q<Math.min(R.pA.length,6);q++)sv+=ln(px-3*Q-q*sp,ty,px-3*Q-q*sp,py-ph/2,R.pA[q],lw);
@@ -216,7 +224,7 @@ function draw3d(){
     sv+='</svg>';
     let el=pn;
     w.b.forEach(b=>{
-      const g=b.ts.length,sel=b.id==sid&&sk=='box'?' sel':'',jsel=b.id==sid&&sk=='jb'?' sel':'',rd=isRd(R,b),dm=jbDim(b.js),ly=LY[b.id],pi=b.ts.includes('p')?pairInfo(b.id):null;
+      const g=b.ts.length,sel=b.id==sid&&sk=='box'?' sel':'',jsel=b.id==sid&&sk=='jb'?' sel':'',ly=LY[b.id],rd=ly.rd,dm=ly.dm,pi=b.ts.includes('p')?pairInfo(b.id):null;
       el+=`<div class="jb${rd?' rd':''}${jsel}" data-id="${b.id}" style="left:${ly.cx}px;top:${ty}px;width:${(rd?22:dm[0])*Q}px;height:${(rd?22:dm[1])*Q}px;font-size:${Math.max(6,7*Q)}px">${rd?'⌀':dm[2]}</div>`;
       const cells=b.ts.map((t,k)=>`<div class="c t${t}" style="background:${TC[t]};width:${ly.c}px;height:${ly.c}px;font-size:${ly.c<16?7:Math.min(14,9*Q)}px;line-height:${ly.c-3}px;margin:${b.or=='v'?'0 0 '+2*Q+'px':'0 '+2*Q+'px 0 0'}">${R.lab(b.id)}${g>1?LET[k]||'':''}</div>`).join('');
       el+=`<div class="bx${sel}" data-id="${b.id}" style="left:${ly.cx}px;top:${ly.cy}px;flex-direction:${b.or=='v'?'column':'row'}">${cells}${pi?`<i class="pb">${esc(pi.name)}</i>`:''}</div>`;});
@@ -278,14 +286,15 @@ function setTab(t){if(t=='jb'){openWire(S.pop.id);return;}S.pop.tab=t;all();}
 let pkey='';
 function renderPop(){
   const el=$('pop'),p=S.pop;
-  if(!p){el.hidden=true;pkey='';return;}
+  if(!p){el.hidden=true;pkey='';S.shift=0;return;}
   let r=null;
   if(p.k=='box')r=popBox(p);else if(p.k=='jb')r=popJb(p);else if(p.k=='panel')r=popPanel();else if(p.k=='rooms')r=popRooms();else if(p.k=='room')r=popRoom();else if(p.k=='tot')r=popTot();else if(p.k=='io')r=popIo();
-  if(!r){S.pop=null;el.hidden=true;return;}
+  if(!r){S.pop=null;el.hidden=true;S.shift=0;return;}
   const key=p.k+':'+(p.id||'')+':'+(p.tab||''),old=$('popc'),sc=key==pkey&&old?old.scrollTop:0;pkey=key;
   el.hidden=false;el.className=r.modal?'modal':'sheet';
   el.innerHTML=`<div class="dim"></div><div class="win"><div class="wh2"><b>${r.title}</b><button class="x" onclick="closePop()" aria-label="Закрыть">✕</button></div>${r.tabs||''}<div class="pc" id="popc">${r.body}</div></div>`;
   $('popc').scrollTop=sc;
+  S.shift=r.modal?0:Math.max(0,el.querySelector('.win').offsetHeight-$('dock').offsetHeight)/2;
 }
 
 /* подрозетник */
@@ -389,7 +398,7 @@ function jbSvg(rows){
 }
 function popJb(p){
   const o=boxById(p.id);if(!o)return null;
-  const b=o.b,R=ring(),rd=isRd(R,b),pi=b.ts.includes('p')?pairInfo(b.id):null,tab=p.tab||'sch',dm=jbDim(b.js);
+  const b=o.b,R=ring(),rd=isRd(R,b),pi=b.ts.includes('p')?pairInfo(b.id):null,tab=p.tab||'sch',eff=jsOf(R,b),dm=jbDim(eff);
   let body='';
   if(tab=='sch'){
     const rows=jbRows(b);
@@ -398,11 +407,11 @@ function popJb(p){
     `<div class="hint">Всего ${rows.length} соединений (клеммы на 2 провода). Кабели: из щитка${rows.some(r=>r.ext[2]=='l')?', к светильнику':''}${rows.some(r=>r.ext[2]=='j')?', перемычки пары':''} и от подрозетника. Ноль и землю светильника выключатель не коммутирует — их соединяют отдельно.</div>`+
     `<div class="row"><button onclick="pick(${b.id})">● Подрозетник №${R.lab(b.id)} →</button></div>`;
   }else{
-    body=`<div class="hint">${rd?'Круглая: стоит на краю ряда над одиночной розеткой или выключателем. ':''}Выбери размер — на стене коробка сразу изменится.</div>${seg(JS.map(k=>[k,k.replace('x','×')]),b.js,v=>`setJs('${v}')`)}`+
+    body=`<div class="hint">${rd?'Круглая: стоит на краю ряда над одиночной розеткой или выключателем. ':''}${!rd&&eff!=b.js?'Рядом стоит другая коробка, поэтому здесь автоматически 7×7. ':''}Выбери размер — на стене коробка сразу изменится.</div>${seg(JS.map(k=>[k,k.replace('x','×')]),b.js,v=>`setJs('${v}')`)}`+
     `<div class="row"><label>Другой размер<input type="text" style="width:130px" placeholder="например 15x15" value="${JS.includes(b.js)?'':esc(b.js)}" onchange="setJs(this.value)"></label></div>`+
     `<div class="hint">Так она выглядит на стене:</div><div class="pv" style="width:${Math.min(dm[0]*4,240)}px;height:${Math.min(dm[1]*4,240)}px">${dm[2]}</div>`;
   }
-  return {modal:true,title:`<span style="display:inline-block;width:16px;height:16px;background:#e8b100;border:1.5px solid #000;vertical-align:middle;margin-right:6px;${rd?'border-radius:50%;background:#fff':''}"></span>Распред. коробка над №${R.lab(b.id)} · ${rd?'круглая':b.js.replace('x','×')}`,tabs:tabsH([['sch','Схема'],['size','Размер']],tab,v=>`S.pop.tab='${v}';all()`),body};
+  return {modal:true,title:`<span style="display:inline-block;width:16px;height:16px;background:#e8b100;border:1.5px solid #000;vertical-align:middle;margin-right:6px;${rd?'border-radius:50%;background:#fff':''}"></span>Распред. коробка над №${R.lab(b.id)} · ${rd?'круглая':eff.replace('x','×')}`,tabs:tabsH([['sch','Схема'],['size','Размер']],tab,v=>`S.pop.tab='${v}';all()`),body};
 }
 function setJs(v){const o=curO();if(o){o.b.js=String(v).trim()||'10x10';all();}}
 
@@ -451,7 +460,7 @@ function calc(rm){return withRoom(rm,()=>{
   const rows=R.all.slice().sort((a,b)=>R.br[a.b.id]!=R.br[b.b.id]?(R.br[a.b.id]>R.br[b.b.id]?1:-1):R.nm[a.b.id]-R.nm[b.b.id]).map(o=>{
     const b=o.b,w=CR.w[o.wi],pc=pcOf(b),len=Math.abs((w.h-30)-bh(b))+Math.abs(o.s-R.sp)+Math.abs((pw.h-30)-CR.p.h),pi=b.ts.includes('p')?pairInfo(b.id):null;
     pipes+=len*pc;
-    if(isRd(R,b))rb++;else js[b.js]=(js[b.js]||0)+1;
+    if(isRd(R,b))rb++;else{const k=jsOf(R,b);js[k]=(js[k]||0)+1;}
     b.ts.forEach(t=>{cnt[t]=(cnt[t]||0)+1;WIRES[t].forEach(([c,s])=>{const k=c+'|'+s;tot[k]=(tot[k]||0)+len+15+50;});});
     return {lab:R.lab(b.id),b,wi:o.wi,pc,len,pi};});
   return {rm,R,rows,tot,js,cnt,rb,pipes};
@@ -501,26 +510,26 @@ function eb(f,v){const o=curO();if(!o)return;const b=o.b,w=CR.w[o.wi];w.touched=
   all();}
 
 /* ---------- жесты: вращение, щипок, тап ---------- */
-const st=$('stage'),ptr=new Map();let pd=null,mv=false,pdist=0,zq=0;
+const st=$('stage'),ptr=new Map();let pd=null,mv=false,pdist=0,zq=0,pmid=null;
 const dist2=()=>{const a=[...ptr.values()];return a.length<2?0:Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);};
 const zsoft=()=>{if(!zq)zq=requestAnimationFrame(()=>{zq=0;draw3d();});};
-st.addEventListener('pointerdown',e=>{if(e.target.closest('#zoom'))return;ptr.set(e.pointerId,[e.clientX,e.clientY]);if(ptr.size==1){pd=[e.clientX,e.clientY];mv=false;}else{pdist=dist2();mv=true;}});
+st.addEventListener('pointerdown',e=>{if(e.target.closest('#zoom'))return;ptr.set(e.pointerId,[e.clientX,e.clientY]);if(ptr.size==1){pd=[e.clientX,e.clientY];mv=false;}else{pdist=dist2();pmid=null;mv=true;}});
 st.addEventListener('pointermove',e=>{
   if(!ptr.has(e.pointerId))return;ptr.set(e.pointerId,[e.clientX,e.clientY]);
-  if(ptr.size>=2){const nd=dist2();if(pdist>0){S.z=clamp(S.z*nd/pdist,.3,6);zsoft();}pdist=nd;return;}
+  if(ptr.size>=2){const nd=dist2(),a=[...ptr.values()],mx=(a[0][0]+a[1][0])/2,my=(a[0][1]+a[1][1])/2;if(pmid){S.px+=mx-pmid[0];S.py+=my-pmid[1];view();}pmid=[mx,my];if(pdist>0&&Math.abs(nd-pdist)>1){S.z=clamp(S.z*nd/pdist,.3,6);zsoft();}pdist=nd;return;}
   if(!pd)return;const dx=e.clientX-pd[0],dy=e.clientY-pd[1];if(!mv&&Math.hypot(dx,dy)<8)return;mv=true;S.vy+=dx*.4;S.vx=clamp(S.vx-dy*.4,-85,85);pd=[e.clientX,e.clientY];view();});
 function endp(e,tap){
   const had=ptr.has(e.pointerId);ptr.delete(e.pointerId);
   if(had&&tap&&ptr.size==0&&pd&&!mv){const el=e.target.closest&&e.target.closest('[data-id],[data-pn]');
     if(el){if(el.dataset.pn)openPop('panel');else if(el.classList.contains('jb'))openWire(+el.dataset.id);else pick(+el.dataset.id);}}
-  if(ptr.size==0){pd=null;pdist=0;}else if(ptr.size==1)pd=null;
+  pmid=null;if(ptr.size==0){pd=null;pdist=0;}else if(ptr.size==1)pd=null;
 }
 st.addEventListener('pointerup',e=>endp(e,true));
 st.addEventListener('pointercancel',e=>endp(e,false));
 st.addEventListener('wheel',e=>{e.preventDefault();S.z=clamp(S.z*(e.deltaY<0?1.12:.89),.3,6);zsoft();},{passive:false});
 $('zp').onclick=()=>{S.z=clamp(S.z*1.25,.3,6);draw3d();};
 $('zm').onclick=()=>{S.z=clamp(S.z/1.25,.3,6);draw3d();};
-$('zr').onclick=()=>{S.z=1;S.vx=-25;S.vy=-35;draw3d();};
+$('zr').onclick=()=>{S.z=1;S.px=0;S.py=0;S.vx=-25;S.vy=-35;draw3d();};
 window.addEventListener('resize',draw3d);
 window.appBack=()=>{if(S.pop){closePop();return true;}return false;};
 all();
