@@ -27,6 +27,10 @@ background-color:var(--bg);background-image:repeating-linear-gradient(0deg,trans
 .c.ts,.c.tx{border-radius:3px}.c.tl{border-radius:50% 0 50% 0}.c.tp{border-radius:30%}
 .bx.sel{outline:3px solid #ffd400;outline-offset:2px}
 .bx .c:last-child{margin:0!important}
+.bx.os{transform:translate(-50%,-50%) translateZ(-3px)}
+.jb.os{transform:translate(-50%,-50%) translateZ(-2px);border-style:dashed}
+.bx.os .c{border-style:dashed}
+.bx.os::after{content:'снаружи';position:absolute;left:100%;top:-8px;margin-left:3px;font:bold 8px sans-serif;color:var(--sub);white-space:nowrap}
 .bx .pb{position:absolute;top:-11px;right:-12px;background:#000;color:#fff;font:bold 10px/13px sans-serif;border-radius:7px;padding:0 4px;font-style:normal}
 .jb{position:absolute;display:flex;align-items:center;justify-content:center;background:#e8b100;border:1.5px solid #000;transform:translate(-50%,-50%) translateZ(2px);font-weight:bold;color:#000}
 .jb.rd{border-radius:50%;background:#fff}
@@ -112,11 +116,11 @@ const fmt=n=>String(n).replace('.',',');
 /* ---------- данные ---------- */
 const SK='elplan.v2';
 let P,CR;
-const S={ri:0,cw:0,px:0,py:0,shift:0,pop:null,qg:1,qo:'h',hist:[],vx:-25,vy:-35,z:1,tt:'pipes',ts:'room',nn:3,cdel:null,io:'',saved:true};
+const S={ri:0,cw:0,px:0,py:0,shift:0,pop:null,qg:1,qo:'h',qs:'in',hist:[],vx:-25,vy:-35,z:1,tt:'pipes',ts:'room',nn:3,cdel:null,io:'',saved:true};
 const newWall=()=>({len:400,h:250,touched:false,b:[]});
 const newRoom=(name,n)=>({name,n,w:[newWall(),newWall(),newWall(),newWall()],p:{w:0,x:100,h:150,on:true},pairs:[]});
 const pOn=()=>CR.p.on!==false;
-const mkBox=(x,t)=>({id:uid++,x,ts:[t],or:'h',pc:null,fr:'L',hc:null,js:'10x10',name:'',np:false});
+const mkBox=(x,t)=>({id:uid++,x,ts:[t],or:'h',pc:null,fr:'L',hc:null,js:'10x10',name:'',np:false,sd:'in',nj:false});
 function load(){try{const j=JSON.parse(localStorage.getItem(SK)||'null');if(j&&j.P&&j.P.rooms&&j.P.rooms.length){P=j.P;S.ri=Math.min(j.ri||0,P.rooms.length-1);uid=Math.max(uid,j.uid||1);return true;}}catch(e){}return false;}
 function save(){try{localStorage.setItem(SK,JSON.stringify({P,ri:S.ri,uid}));S.saved=true;}catch(e){S.saved=false;}}
 function initP(){P={name:'Проект 1',rooms:[newRoom('Комната 1',2)],hd:{o:30,s:90,p:90,l:200,x:100}};S.ri=0;}
@@ -174,8 +178,8 @@ function ring(){
 }
 const jbCm=js=>{const m=/(\d+(?:[.,]\d+)?)\D+(\d+(?:[.,]\d+)?)/.exec(js||'');return m?[parseFloat(m[1].replace(',','.')),parseFloat(m[2].replace(',','.'))]:[10,10];};
 const placeCm=b=>Math.max(jbCm(b.js)[0],b.or=='v'?7.1:(b.ts.length-1)*gpOf(b)+7.1);
-const tight=(w,b)=>w.b.some(o=>o!==b&&Math.abs(o.x-b.x)<(placeCm(o)+placeCm(b))/2+1);
-const extSingle=(R,b)=>!!R.ed[b.id]&&R.bn[b.id]>1&&b.ts.length==1&&(b.ts[0]=='o'||b.ts[0]=='s');
+const tight=(w,b)=>w.b.some(o=>o!==b&&(o.sd||'in')==(b.sd||'in')&&Math.abs(o.x-b.x)<(placeCm(o)+placeCm(b))/2+1);
+const extSingle=(R,b)=>!b.nj&&!!R.ed[b.id]&&R.bn[b.id]>1&&b.ts.length==1&&(b.ts[0]=='o'||b.ts[0]=='s');
 const isRd=(R,b)=>extSingle(R,b)&&!tight(CR.w[R.wo[b.id]],b);
 const jsOf=(R,b)=>extSingle(R,b)&&tight(CR.w[R.wo[b.id]],b)?'7x7':b.js;
 function pipesAt(R,s){return R.all.filter(o=>s<=R.sp?o.s<=s:(o.s>=s&&o.s>R.sp)).flatMap(o=>pipeList(o.b));}
@@ -187,13 +191,13 @@ function grpLay(w,b,L,H,ty,jh){
   const c=v?clamp(Math.floor((hi-lo-(g-1)*gap)/g),cmin,cmax):clamp(Math.floor((L-6*Q-(g-1)*gap)/g),cmin,cmax);
   const tw=v?c:g*c+(g-1)*gap,th=v?g*c+(g-1)*gap:c;
   const cx=clamp(b.x*K,tw/2+3*Q,L-tw/2-3*Q),cy=clamp(ydes,lo+th/2,hi-th/2);
-  return {c,cx,cy,top:above?cy+th/2:cy-th/2,tw,th,above,gap};
+  return {c,cx,cy,top:above?cy+th/2:cy-th/2,end:(v&&g>1)?(above?cy-th/2:cy+th/2):(above?cy+th/2:cy-th/2),tw,th,above,gap};
 }
 
 /* ---------- 3D ---------- */
 let C=[0,0];
 function view(){$('world').style.transform=`translate(${S.px}px,${S.py-S.shift}px) rotateX(${S.vx}deg) rotateY(${S.vy}deg) translate3d(${-C[0]}px,0,${-C[1]}px)`;}
-const ln=(x1,y1,x2,y2,c,w)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${w}"/>`;
+const ln=(x1,y1,x2,y2,c,w,d)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${w}"${d?` stroke-dasharray="${d}"`:''}/>`;
 function draw3d(){
   const R=ring(),st=$('stage'),W=st.clientWidth||360,Hh=st.clientHeight||300;
   let gx=0,gz=0,gth=0;const gp=[[0,0]];
@@ -214,12 +218,13 @@ function draw3d(){
       for(let q=0;q<m;q++){const o=ty+(q-(m-1)/2)*sp;sv+=ln(s.a*K,o,s.b*K,o,s.pl[q],lw);}
       if((s.b-s.a)*K>26*Q||s===longest)sv+=`<text x="${(s.a+s.b)/2*K}" y="${ty-(m-1)*sp/2-4*Q}" font-size="${fs}" font-weight="bold" text-anchor="middle" fill="currentColor" style="stroke:var(--bg);stroke-width:3px;paint-order:stroke">${c}</text>`;});
     const LY={};
-    const items=w.b.map(b=>{const rd=isRd(R,b),dm=jbDim(jsOf(R,b)),jw=(rd?22:dm[0])*Q,jh=(rd?22:dm[1])*Q,ly=grpLay(w,b,L,H,ty,jh);ly.pw=Math.max(ly.tw,jw);ly.rd=rd;ly.dm=dm;LY[b.id]=ly;return {b,ly,x:b.x*K};}).sort((a,c)=>a.x-c.x);
+    const items=w.b.map(b=>{const rd=isRd(R,b),dm=jbDim(jsOf(R,b)),jw=b.nj?0:(rd?22:dm[0])*Q,jh=b.nj?0:(rd?22:dm[1])*Q,ly=grpLay(w,b,L,H,ty,jh);ly.pw=Math.max(ly.tw,jw);ly.rd=rd;ly.dm=dm;LY[b.id]=ly;return {b,ly,x:b.x*K};});
     const gapPx=3*Q;
-    items.forEach((it,i)=>{it.p=Math.max(it.x,i?items[i-1].p+(items[i-1].ly.pw+it.ly.pw)/2+gapPx:0);});
-    for(let i=items.length-1;i>=0;i--){const it=items[i],hi=L-it.ly.pw/2-3*Q,lo=it.ly.pw/2+3*Q;it.p=Math.min(it.p,i<items.length-1?items[i+1].p-(items[i+1].ly.pw+it.ly.pw)/2-gapPx:hi,hi);it.p=Math.max(it.p,lo);}
-    items.forEach(it=>{it.ly.cx=it.p;const pl=pipeList(it.b),n=Math.min(pl.length,8);
-      for(let q=0;q<n;q++){const o=(q-(n-1)/2)*sp;sv+=ln(it.p+o,ty,it.p+o,it.ly.top,pl[q],lw);}});
+    ['in','out'].forEach(sd=>{const L2=items.filter(it=>(it.b.sd||'in')==sd).sort((a,c)=>a.x-c.x);
+      L2.forEach((it,i)=>{it.p=Math.max(it.x,i?L2[i-1].p+(L2[i-1].ly.pw+it.ly.pw)/2+gapPx:0);});
+      for(let i=L2.length-1;i>=0;i--){const it=L2[i],hi=L-it.ly.pw/2-3*Q,lo=it.ly.pw/2+3*Q;it.p=Math.min(it.p,i<L2.length-1?L2[i+1].p-(L2[i+1].ly.pw+it.ly.pw)/2-gapPx:hi,hi);it.p=Math.max(it.p,lo);}});
+    items.forEach(it=>{it.ly.cx=it.p;const pl=pipeList(it.b),n=Math.min(pl.length,8),dsh=(it.b.sd||'in')=='out'?'4 3':'';
+      for(let q=0;q<n;q++){const o=(q-(n-1)/2)*sp;sv+=ln(it.p+o,ty,it.p+o,it.ly.end,pl[q],lw,dsh);}});
     if(R.pw==i){const px=CR.p.x*K,py=(w.h-CR.p.h)*K,pw2=44*Q,ph=30*Q;
       const on=pOn();pn=`<div class="pn${sk=='panel'?' sel':''}${on?'':' off'}" data-pn="1" style="left:${px-pw2/2}px;top:${py-ph/2}px;width:${pw2}px;height:${ph}px;font-size:${(on?13:10)*Q}px;line-height:${ph-3}px">${on?'Щ':'вых.'}</div>`;
       for(let q=0;q<Math.min(R.pA.length,6);q++)sv+=ln(px-3*Q-q*sp,ty,px-3*Q-q*sp,py-ph/2,R.pA[q],lw);
@@ -230,10 +235,10 @@ function draw3d(){
     sv+='</svg>';
     let el=pn;
     w.b.forEach(b=>{
-      const g=b.ts.length,sel=b.id==sid&&sk=='box'?' sel':'',jsel=b.id==sid&&sk=='jb'?' sel':'',ly=LY[b.id],rd=ly.rd,dm=ly.dm,pi=b.ts.includes('p')?pairInfo(b.id):null;
-      el+=`<div class="jb${rd?' rd':''}${jsel}" data-id="${b.id}" style="left:${ly.cx}px;top:${ty}px;width:${(rd?22:dm[0])*Q}px;height:${(rd?22:dm[1])*Q}px;font-size:${Math.max(6,7*Q)}px">${rd?'⌀':dm[2]}</div>`;
+      const g=b.ts.length,sel=b.id==sid&&sk=='box'?' sel':'',jsel=b.id==sid&&sk=='jb'?' sel':'',ly=LY[b.id],rd=ly.rd,dm=ly.dm,pi=b.ts.includes('p')?pairInfo(b.id):null,os=(b.sd||'in')=='out'?' os':'';
+      if(!b.nj)el+=`<div class="jb${rd?' rd':''}${jsel}${os}" data-id="${b.id}" style="left:${ly.cx}px;top:${ty}px;width:${(rd?22:dm[0])*Q}px;height:${(rd?22:dm[1])*Q}px;font-size:${Math.max(6,7*Q)}px">${rd?'⌀':dm[2]}</div>`;
       const cells=b.ts.map((t,k)=>`<div class="c t${t}" style="background:${TC[t]};width:${ly.c}px;height:${ly.c}px;font-size:${ly.c<16?7:Math.min(14,9*Q)}px;line-height:${ly.c-3}px;margin:${b.or=='v'?'0 0 '+ly.gap+'px':'0 '+ly.gap+'px 0 0'}">${R.lab(b.id)}${g>1?LET[k]||'':''}</div>`).join('');
-      el+=`<div class="bx${sel}" data-id="${b.id}" style="left:${ly.cx}px;top:${ly.cy}px;flex-direction:${b.or=='v'?'column':'row'}">${cells}${pi?`<i class="pb">${esc(pi.name)}</i>`:''}</div>`;});
+      el+=`<div class="bx${sel}${os}" data-id="${b.id}" style="left:${ly.cx}px;top:${ly.cy}px;flex-direction:${b.or=='v'?'column':'row'}">${cells}${pi?`<i class="pb">${esc(pi.name)}</i>`:''}</div>`;});
     html+=`<div class="wall" style="width:${L}px;height:${H}px;transform:translate3d(${x}px,${-H/2}px,${z}px) rotateY(${th}deg)">${sv}${el}<span class="zb">${i+1}</span></div>`;
     x+=L*Math.cos(th*Math.PI/180);z-=L*Math.sin(th*Math.PI/180);th+=90;
   }
@@ -257,7 +262,7 @@ function renderDock(){
   const w=CW(),R=ring();
   $('dock').innerHTML=`<div class="row2">${[...Array(CR.n).keys()].map(i=>`<button class="${S.cw==i?'on':''}" onclick="S.cw=${i};redraw()">Ст.${i+1}</button>`).join('')}<button onclick="openPop('trunk')">⇕ Труба</button><span class="hint">${w.len}×${w.h} · труба ${tzOf(w)} см</span></div>`+
   `<div class="qa">${TYPES.map(t=>`<button style="--c:${TC[t]}" onclick="addQuick('${t}')">${QI[t]}<small>${TB[t]}</small></button>`).join('')}</div>`+
-  `<div class="row2"><span class="hint">В группе:</span>${[1,2,3,4].map(k=>`<button class="${S.qg==k?'on':''}" onclick="S.qg=${k};redraw()">${k}</button>`).join('')}<button onclick="S.qo=S.qo=='h'?'v':'h';redraw()">${S.qo=='h'?'↔':'↕'}</button><button onclick="undo()">↶</button></div>`+
+  `<div class="row2"><span class="hint">В группе:</span>${[1,2,3,4].map(k=>`<button class="${S.qg==k?'on':''}" onclick="S.qg=${k};redraw()">${k}</button>`).join('')}<button onclick="S.qo=S.qo=='h'?'v':'h';redraw()">${S.qo=='h'?'↔':'↕'}</button><button class="${S.qs=='out'?'on':''}" onclick="S.qs=S.qs=='out'?'in':'out';redraw()">${S.qs=='out'?'Снаружи':'Внутри'}</button><button onclick="undo()">↶</button></div>`+
   `<div class="chips">${w.b.length?w.b.slice().sort((p,q)=>p.x-q.x).map(o=>`<button class="${o.id==curId()?'on':''}" onclick="pick(${o.id})">${dotsH(o.ts)}№${R.lab(o.id)}${o.ts.length>1?' ×'+o.ts.length:''}</button>`).join(''):'<span class="hint">Пока пусто — нажми тип выше.</span>'}</div>`;
 }
 function renderEmpty(){
@@ -273,7 +278,7 @@ function gapX(w,skip){
   return Math.round(bx);
 }
 function addQuick(t){
-  const w=CW(),b=mkBox(0,t);b.ts=Array(S.qg).fill(t);b.or=S.qo;
+  const w=CW(),b=mkBox(0,t);b.ts=Array(S.qg).fill(t);b.or=S.qo;b.sd=S.qs;
   w.b.push(b);if(!w.touched)respread(w);else b.x=gapX(w,b);
   S.hist.push(b.id);redraw();
 }
@@ -327,7 +332,7 @@ function popBox(p){
     `<div class="q">Подпись</div><input type="text" style="width:100%" placeholder="например: розетка у стола" value="${esc(b.name)}" onchange="eb('name',this.value)"><div class="hint">Если написать «розетка», «выключатель», «проходной» или «спираль», тип и высота выберутся сами.</div>`;
   }else if(tab=='pos'){
     const pos=b.fr=='R'?w.len-b.x:b.x;
-    body=`<div class="q">Подвинуть по стене</div>${seg(NUDGE,null,v=>`nudge(${v})`)}<div class="hint">Расстояние считать от:</div>${seg([['L','левого края'],['R','правого края']],b.fr,v=>`eb('fr','${v}')`)}`+
+    body=`<div class="q">С какой стороны стены</div>${seg([['in','Внутри комнаты'],['out','Снаружи (с другой стороны)']],b.sd||'in',v=>`eb('sd','${v}')`)}<div class="q">Подвинуть по стене</div>${seg(NUDGE,null,v=>`nudge(${v})`)}<div class="hint">Расстояние считать от:</div>${seg([['L','левого края'],['R','правого края']],b.fr,v=>`eb('fr','${v}')`)}`+
     `<div class="row"><label>Расстояние, см<input type="number" value="${Math.round(pos)}" onchange="eb('pos',this.value)"></label><label>Высота от пола, см${b.hc==null?' (авто)':''}<input type="number" value="${bh(b)}" onchange="eb('hc',this.value)"></label>${b.hc!=null?`<button onclick="eb('hc','')">Авто</button>`:''}</div>`+
     `<div class="row"><button onclick="near(-1)">+ коробка слева</button><button onclick="near(1)">+ коробка справа</button><button class="danger" onclick="delBox()">Удалить</button></div>`;
   }else if(tab=='pipe'){
@@ -388,7 +393,11 @@ function jointsOf(t,pi,k){
   return A?[J('brown','Щиток · фаза L','p','brown','Проходной · общий'),J('red',tr,'j','red','Проходной · ход 1'),J('black',tr,'j','black','Проходной · ход 2')]
           :[J('red',tr,'j','red','Проходной · ход 1'),J('black',tr,'j','black','Проходной · ход 2'),J('brown','К светильнику · L','l','brown','Проходной · общий')];
 }
-const jbRows=b=>{const pi=b.ts.includes('p')?pairInfo(b.id):null;return b.ts.flatMap((t,k)=>jointsOf(t,pi,k));};
+function jbTarget(R,b){if(!b.nj)return b;const me=R.all.find(o=>o.b===b);if(!me)return null;let best=null,bd=1e9;R.all.forEach(o=>{if(o.b!==b&&!o.b.nj){const d=Math.abs(o.s-me.s);if(d<bd){bd=d;best=o.b;}}});return best;}
+const jbFeeders=(R,b)=>R.all.filter(o=>o.b!==b&&o.b.nj&&jbTarget(R,o.b)===b).map(o=>o.b);
+function jbRows(b,R){R=R||ring();
+  const mk=(x,own)=>{const pi=x.ts.includes('p')?pairInfo(x.id):null;return x.ts.flatMap((t,k)=>jointsOf(t,pi,k).map(r=>Object.assign({},r,{el:own?k:'f'+x.id+'-'+k,from:own?'':'№'+R.lab(x.id)+' · '})));};
+  return [...(b.nj?[]:mk(b,true)),...jbFeeders(R,b).flatMap(x=>mk(x,false))];}
 function jbSvg(rows){
   const PH=34,n=rows.length,H=n*PH+20,fx=50,fw=260,cx=fx+fw/2;
   let s=`<rect x="${fx}" y="6" width="${fw}" height="${H-12}" rx="12" fill="#efe9d8" stroke="#6b6b6b" stroke-width="2.5"/>`;
@@ -404,21 +413,28 @@ function jbSvg(rows){
 }
 function popJb(p){
   const o=boxById(p.id);if(!o)return null;
-  const b=o.b,R=ring(),rd=isRd(R,b),pi=b.ts.includes('p')?pairInfo(b.id):null,tab=p.tab||'sch',eff=jsOf(R,b),dm=jbDim(eff);
+  const b=o.b,R=ring(),rd=isRd(R,b),tab=b.nj?'sch':(p.tab||'sch'),eff=jsOf(R,b),dm=jbDim(eff),tg=jbTarget(R,b);
   let body='';
-  if(tab=='sch'){
-    const rows=jbRows(b);
-    const lines=rows.map((r,i)=>`<li value="${i+1}">${CNS[r.ext[0]]} (${esc(r.ext[1])}) + ${CNS[r.loc[0]]} (${esc(r.loc[1])})</li>`).join('');
-    body=`<div class="jbw">${jbSvg(rows)}</div><div class="hint">Серые — кабели, оранжевые рычажки — клеммы. Номер на клемме совпадает с описанием.</div><ol class="tl">${lines}</ol>`+
-    `<div class="hint">Всего ${rows.length} соединений (клеммы на 2 провода). Кабели: из щитка${rows.some(r=>r.ext[2]=='l')?', к светильнику':''}${rows.some(r=>r.ext[2]=='j')?', перемычки пары':''} и от подрозетника. Ноль и землю светильника выключатель не коммутирует — их соединяют отдельно.</div>`+
+  if(b.nj){
+    body=`<div class="hint">Распред. коробки над этим подрозетником нет. Подрозетник остался, его ${pcOf(b)} тр. идут вдоль стены ${tg?'в ближайшую распред. коробку — над №'+R.lab(tg.id)+' (стена '+(R.wo[tg.id]+1)+'). Соединение проводов делается там.':'— но других распред. коробок нет, поставь хотя бы одну.'}</div>`+
+    `<div class="row">${tg?`<button class="go" onclick="openWire(${tg.id})">▣ Открыть ту коробку</button>`:''}<button onclick="setNj(false)">+ Вернуть распред. коробку</button></div>`+
     `<div class="row"><button onclick="pick(${b.id})">● Подрозетник №${R.lab(b.id)} →</button></div>`;
+  }else if(tab=='sch'){
+    const rows=jbRows(b,R),fe=jbFeeders(R,b);
+    const lines=rows.map((r,i)=>`<li value="${i+1}">${r.from||''}${CNS[r.ext[0]]} (${esc(r.ext[1])}) + ${CNS[r.loc[0]]} (${esc(r.loc[1])})</li>`).join('');
+    body=`<div class="jbw">${jbSvg(rows)}</div><div class="hint">Серые — кабели, оранжевые рычажки — клеммы. Номер на клемме совпадает с описанием.</div><ol class="tl">${lines}</ol>`+
+    (fe.length?`<div class="hint">Сюда же идут трубы подрозетников без своей коробки: ${fe.map(x=>'№'+R.lab(x.id)).join(', ')}. Их соединения показаны с номером.</div>`:'')+
+    `<div class="hint">Всего ${rows.length} соединений (клеммы на 2 провода). Кабели: из щитка${rows.some(r=>r.ext[2]=='l')?', к светильнику':''}${rows.some(r=>r.ext[2]=='j')?', перемычки пары':''} и от подрозетника. Ноль и землю светильника выключатель не коммутирует — их соединяют отдельно.</div>`+
+    `<div class="row"><button onclick="pick(${b.id})">● Подрозетник №${R.lab(b.id)} →</button><button class="danger" onclick="setNj(true)">🗑 Удалить распред. коробку</button></div><div class="hint">Подрозетник при удалении останется: его трубы пойдут в ближайшую распред. коробку.</div>`;
   }else{
     body=`<div class="hint">${rd?'Круглая: стоит на краю ряда над одиночной розеткой или выключателем. ':''}${!rd&&eff!=b.js?'Рядом стоит другая коробка, поэтому здесь автоматически 7×7. ':''}Выбери размер — на стене коробка сразу изменится.</div>${seg(JS.map(k=>[k,k.replace('x','×')]),b.js,v=>`setJs('${v}')`)}`+
     `<div class="row"><label>Другой размер<input type="text" style="width:130px" placeholder="например 15x15" value="${JS.includes(b.js)?'':esc(b.js)}" onchange="setJs(this.value)"></label></div>`+
     `<div class="hint">Так она выглядит на стене:</div><div class="pv" style="width:${Math.min(dm[0]*4,240)}px;height:${Math.min(dm[1]*4,240)}px">${dm[2]}</div>`;
   }
-  return {modal:true,title:`<span style="display:inline-block;width:16px;height:16px;background:#e8b100;border:1.5px solid #000;vertical-align:middle;margin-right:6px;${rd?'border-radius:50%;background:#fff':''}"></span>Распред. коробка над №${R.lab(b.id)} · ${rd?'круглая':eff.replace('x','×')}`,tabs:tabsH([['sch','Схема'],['size','Размер']],tab,v=>`S.pop.tab='${v}';redraw()`),body};
+  const ico=`<span style="display:inline-block;width:16px;height:16px;${b.nj?'border:1.5px dashed #888;':'background:#e8b100;border:1.5px solid #000;'}vertical-align:middle;margin-right:6px;${rd?'border-radius:50%;background:#fff':''}"></span>`;
+  return {modal:true,title:ico+(b.nj?'Распред. коробки нет · №'+R.lab(b.id):'Распред. коробка над №'+R.lab(b.id)+' · '+(rd?'круглая':eff.replace('x','×'))),tabs:b.nj?'':tabsH([['sch','Схема'],['size','Размер']],tab,v=>`S.pop.tab='${v}';redraw()`),body};
 }
+function setNj(v){const o=curO();if(o){o.b.nj=!!v;S.pop.tab='sch';redraw();}}
 function setJs(v){const o=curO();if(o){o.b.js=String(v).trim()||'10x10';redraw();}}
 
 /* высота горизонтальных труб */
@@ -479,9 +495,9 @@ function uw(i,k,v){const w=CR.w[i];w[k]=Math.max(10,num(v));if(k=='len'){if(!w.t
 function calc(rm){return withRoom(rm,()=>{
   const R=ring(),pw=CR.w[R.pw],tot={},js={},cnt={};let pipes=0,rb=0;
   const rows=R.all.slice().sort((a,b)=>R.br[a.b.id]!=R.br[b.b.id]?(R.br[a.b.id]>R.br[b.b.id]?1:-1):R.nm[a.b.id]-R.nm[b.b.id]).map(o=>{
-    const b=o.b,w=CR.w[o.wi],pc=pcOf(b),len=Math.abs(tzOf(w)-bh(b))+Math.abs(o.s-R.sp)+Math.abs(tzOf(w)-tzOf(pw))+Math.abs(tzOf(pw)-CR.p.h),pi=b.ts.includes('p')?pairInfo(b.id):null;
+    const b=o.b,w=CR.w[o.wi],pc=pcOf(b),len=Math.abs(tzOf(w)-bh(b))+(b.or=='v'&&b.ts.length>1?(b.ts.length-1)*gpOf(b)/2:0)+Math.abs(o.s-R.sp)+Math.abs(tzOf(w)-tzOf(pw))+Math.abs(tzOf(pw)-CR.p.h),pi=b.ts.includes('p')?pairInfo(b.id):null;
     pipes+=len*pc;
-    if(isRd(R,b))rb++;else{const k=jsOf(R,b);js[k]=(js[k]||0)+1;}
+    if(!b.nj){if(isRd(R,b))rb++;else{const k=jsOf(R,b);js[k]=(js[k]||0)+1;}}
     b.ts.forEach(t=>{cnt[t]=(cnt[t]||0)+1;WIRES[t].forEach(([c,s])=>{const k=c+'|'+s;tot[k]=(tot[k]||0)+len+15+(CR.p.on!==false?50:0);});});
     return {lab:R.lab(b.id),b,wi:o.wi,pc,len,pi};});
   return {rm,R,rows,tot,js,cnt,rb,pipes};
