@@ -18,6 +18,23 @@ button.danger{border-color:var(--red);color:var(--red)}
 #top .sv{font-size:11px;color:var(--sub)}
 #stage{position:relative;flex:1;min-height:0;perspective:2600px;overflow:hidden;touch-action:none;
 background-color:var(--bg);background-image:repeating-linear-gradient(0deg,transparent 0 23px,var(--line) 23px 24px),repeating-linear-gradient(90deg,transparent 0 23px,var(--line) 23px 24px)}
+#leftRail,#rightRail{position:absolute;top:8px;bottom:8px;z-index:10;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+#leftRail{left:calc(4px + env(safe-area-inset-left,0px));width:clamp(66px,8vw,92px);padding-bottom:154px}
+#rightRail{right:calc(4px + env(safe-area-inset-right,0px));width:clamp(70px,9vw,98px)}
+#leftRail button,#rightRail button{pointer-events:auto;touch-action:manipulation;user-select:none}
+.rail-title{flex:0 0 auto;text-align:center;color:var(--sub);font-size:9px;font-weight:bold;letter-spacing:.08em;padding:2px 0}
+.rail-scroll,.quick-stack,.rail-chip-scroll{display:flex;flex-direction:column;gap:6px;overflow:auto;min-height:0;scrollbar-width:none}
+.rail-scroll{flex:1}.rail-chip-scroll{flex:1}
+.rail-scroll::-webkit-scrollbar,.quick-stack::-webkit-scrollbar,.rail-chip-scroll::-webkit-scrollbar{display:none}
+.rail-wall,.rail-tool,.rail-action,.rail-chip{width:100%;min-height:44px;padding:3px 2px;border:1.5px solid var(--ink);border-radius:10px;background:var(--card);box-shadow:0 2px 5px rgba(0,0,0,.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1.05}
+.rail-wall{flex:0 0 48px;font-size:12px}.rail-wall b{font-size:20px}.rail-wall.on{background:var(--ink);color:var(--bg)}
+.rail-tool,.rail-action{font-size:18px}.rail-tool small,.rail-action small{font-size:9px;font-weight:normal;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.rail-action{min-height:39px;font-size:16px;padding:2px}.rail-action.on{background:var(--ink);color:var(--bg)}
+.quick-stack{flex:0 0 auto}.quick-stack button{flex:0 0 52px;width:100%;padding:3px 1px;border-color:var(--c);border-bottom:5px solid var(--c);background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.quick-stack button strong{font-size:22px}.quick-stack button small{font-size:9px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.rail-divider{height:1px;background:var(--line);opacity:.8;margin:1px 0}.rail-label{text-align:center;color:var(--sub);font-size:10px;font-weight:bold}
+.rail-group{display:grid;grid-template-columns:repeat(2,1fr);gap:4px}.rail-group button{min-height:30px;padding:2px;font-size:13px}.rail-group button.on{background:var(--ink);color:var(--bg)}
+.rail-chip-scroll{padding:2px 0 4px}.rail-chip{min-height:34px;flex-direction:row;gap:3px;font-size:11px;font-weight:bold;white-space:nowrap;overflow:hidden}.rail-chip .dots{display:flex;gap:1px}.rail-chip .dots i{width:8px;height:8px}
 #world{position:absolute;left:50%;top:50%;transform-style:preserve-3d}
 .wall{position:absolute;left:0;top:0;transform-origin:0 0;background:rgba(42,63,158,.12);border:2px solid var(--acc);transform-style:preserve-3d;color:var(--ink)}
 .wall svg{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
@@ -38,11 +55,11 @@ background-color:var(--bg);background-image:repeating-linear-gradient(0deg,trans
 .pn{position:absolute;background:#444;border:1.5px solid #fff;color:#fff;font-weight:bold;text-align:center;transform:translateZ(2px)}
 .pn.sel{outline:3px solid #ffd400;outline-offset:2px}
 .pn.off{background:transparent;border:2px dashed var(--ink);color:var(--ink)}
-#zoom{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px}
+#zoom{position:absolute;left:calc(8px + env(safe-area-inset-left,0px));right:auto;bottom:10px;top:auto;display:flex;flex-direction:column;gap:6px;z-index:11}
 #zoom button{width:42px;height:42px;font-size:22px;padding:0}
-#legend{position:absolute;left:8px;bottom:6px;font-size:11px;color:var(--sub);pointer-events:none}
-#empty{position:absolute;left:12px;right:60px;top:12px;font-size:14px;color:var(--sub);pointer-events:none}
-#dock{background:var(--card);border-top:2px solid var(--ink);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px}
+#legend{position:absolute;left:86px;bottom:6px;font-size:11px;color:var(--sub);pointer-events:none}
+#empty{position:absolute;left:94px;right:108px;top:12px;font-size:14px;color:var(--sub);pointer-events:none}
+#dock{display:none}
 .row2{display:flex;gap:6px;align-items:center;flex-wrap:nowrap}
 .row2 .hint{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row2 button{padding:6px 11px}
@@ -90,7 +107,7 @@ textarea{width:100%;height:150px;font-size:12px}
 </style></head><body>
 <div id="app">
 <div id="top"></div>
-<div id="stage"><div id="empty" style="color:#e53935;font-weight:bold">Скрипт не запустился: файл index.html скопирован не полностью. Загрузи его заново через Upload files.</div><div id="legend">● подрозетник · ■ распред. коробка · ▮ щиток</div>
+<div id="stage"><div id="empty" style="color:#e53935;font-weight:bold">Скрипт не запустился: файл index.html скопирован не полностью. Загрузи его заново через Upload files.</div><div id="leftRail" aria-label="Стены"></div><div id="rightRail" aria-label="Быстрое добавление"></div><div id="legend">● подрозетник · ■ распред. коробка · ▮ щиток</div>
 <div id="zoom"><button id="zp">+</button><button id="zm">−</button><button id="zr">⌂</button></div>
 <div id="world"></div></div>
 <div id="dock"></div>
@@ -231,11 +248,11 @@ let C=[0,0];
 function view(){$('world').style.transform=`translate(${S.px}px,${S.py-S.shift}px) rotateX(${S.vx}deg) rotateY(${S.vy}deg) translate3d(${-C[0]}px,0,${-C[1]}px)`;}
 const ln=(x1,y1,x2,y2,c,w,d)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${w}"${d?` stroke-dasharray="${d}"`:''}/>`;
 function draw3d(){
-  const R=ring(),st=$('stage'),W=st.clientWidth||360,Hh=st.clientHeight||300;
+  const R=ring(),st=$('stage'),W=st.clientWidth||360,Hh=st.clientHeight||300,sideW=($('leftRail')?.offsetWidth||0)+($('rightRail')?.offsetWidth||0)+20,usableW=Math.max(180,W-sideW);
   let gx=0,gz=0,gth=0;const gp=[[0,0]];
   for(let i=0;i<CR.n;i++){gx+=CR.w[i].len*Math.cos(gth*Math.PI/180);gz-=CR.w[i].len*Math.sin(gth*Math.PI/180);gth+=90;gp.push([gx,gz]);}
   const gxs=gp.map(p=>p[0]),gzs=gp.map(p=>p[1]),diag=Math.hypot(Math.max(...gxs)-Math.min(...gxs),Math.max(...gzs)-Math.min(...gzs)),hmax=Math.max(...CR.w.slice(0,CR.n).map(w=>w.h));
-  FIT=clamp(Math.min(W*.88/(diag*.5+hmax*.15+10),Hh*.82/(hmax*.5+diag*.2+10)),.25,2.4);
+  FIT=clamp(Math.min(usableW*.88/(diag*.5+hmax*.15+10),Hh*.82/(hmax*.5+diag*.2+10)),.25,2.4);
   U=FIT*S.z;K=.5*U;Q=clamp(U,.55,2.2);
   const sid=curId(),sk=S.pop&&S.pop.k;
   let x=0,z=0,th=0,html='',pts=[];
@@ -292,10 +309,9 @@ function renderTop(){
 }
 function renderDock(){
   const w=CW(),R=ring();
-  $('dock').innerHTML=`<div class="row2">${[...Array(CR.n).keys()].map(i=>`<button class="${S.cw==i?'on':''}" onclick="S.cw=${i};redraw()">Ст.${i+1}</button>`).join('')}<button onclick="openPop('trunk')">⇕ Труба</button><span class="hint">${w.len}×${w.h} · труба ${tzOf(w)} см</span></div>`+
-  `<div class="qa">${TYPES.map(t=>`<button style="--c:${TC[t]}" onclick="addQuick('${t}')">${QI[t]}<small>${TB[t]}</small></button>`).join('')}</div>`+
-  `<div class="row2"><span class="hint">В группе:</span>${[1,2,3,4].map(k=>`<button class="${S.qg==k?'on':''}" onclick="S.qg=${k};redraw()">${k}</button>`).join('')}<button onclick="S.qo=S.qo=='h'?'v':'h';redraw()">${S.qo=='h'?'↔':'↕'}</button><button class="${S.qs=='out'?'on':''}" onclick="S.qs=S.qs=='out'?'in':'out';redraw()">${S.qs=='out'?'Снаружи':'Внутри'}</button><button onclick="undo()">↶</button></div>`+
-  `<div class="chips">${w.b.length?w.b.slice().sort((p,q)=>p.x-q.x).map(o=>`<button class="${o.id==curId()?'on':''}" onclick="pick(${o.id})">${dotsH(o.ts)}№${R.lab(o.id)}${o.ts.length>1?' ×'+o.ts.length:''}</button>`).join(''):'<span class="hint">Пока пусто — нажми тип выше.</span>'}</div>`;
+  $('leftRail').innerHTML=`<div class="rail-title">СТЕНЫ</div><div class="rail-scroll">${[...Array(CR.n).keys()].map(i=>`<button class="rail-wall ${S.cw==i?'on':''}" onclick="S.cw=${i};S.pop=null;redraw()" aria-label="Стена ${i+1}"><span>Ст.</span><b>${i+1}</b></button>`).join('')}</div><button class="rail-tool" onclick="openPop('trunk')" aria-label="Высота трубы">⇕<small>Труба</small></button><button class="rail-tool" onclick="openPop('room')" aria-label="Размеры комнаты">⚙<small>Размеры</small></button>`;
+  $('rightRail').innerHTML=`<div class="rail-title">ДОБАВИТЬ</div><div class="quick-stack">${TYPES.map(t=>`<button style="--c:${TC[t]}" onclick="addQuick('${t}')" aria-label="Добавить: ${TN[t]}"><strong>${QI[t]}</strong><small>${TB[t]}</small></button>`).join('')}</div><div class="rail-divider"></div><div class="rail-label">Группа</div><div class="rail-group">${[1,2,3,4].map(k=>`<button class="${S.qg==k?'on':''}" onclick="S.qg=${k};redraw()" aria-label="${k} элемента в группе">${k}</button>`).join('')}</div><button class="rail-action" onclick="S.qo=S.qo=='h'?'v':'h';redraw()" aria-label="Ориентация группы"><b>${S.qo=='h'?'↔':'↕'}</b><small>${S.qo=='h'?'ряд':'колонка'}</small></button><button class="rail-action ${S.qs=='out'?'on':''}" onclick="S.qs=S.qs=='out'?'in':'out';redraw()" aria-label="Сторона стены"><b>${S.qs=='out'?'⇥':'⇤'}</b><small>${S.qs=='out'?'снаружи':'внутри'}</small></button><button class="rail-action" onclick="undo()" aria-label="Отменить добавление"><b>↶</b><small>Отмена</small></button><div class="rail-divider"></div><div class="rail-label">МЕСТА</div><div class="rail-chip-scroll">${w.b.length?w.b.slice().sort((p,q)=>p.x-q.x).map(o=>`<button class="rail-chip ${o.id==curId()?'on':''}" onclick="pick(${o.id})" aria-label="Место №${R.lab(o.id)}">${dotsH(o.ts)}<span>№${R.lab(o.id)}${o.ts.length>1?' ×'+o.ts.length:''}</span></button>`).join(''):'<span class="rail-title">Пусто</span>'}</div>`;
+  $('dock').innerHTML='';
 }
 function renderEmpty(){
   const n=CR.w.slice(0,CR.n).reduce((a,w)=>a+w.b.length,0);
@@ -592,7 +608,7 @@ function eb(f,v){const o=curO();if(!o)return;const b=o.b,w=CR.w[o.wi];w.touched=
 const st=$('stage'),ptr=new Map();let pd=null,mv=false,pdist=0,zq=0,pmid=null;
 const dist2=()=>{const a=[...ptr.values()];return a.length<2?0:Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);};
 const zsoft=()=>{if(!zq)zq=requestAnimationFrame(()=>{zq=0;draw3d();});};
-st.addEventListener('pointerdown',e=>{if(e.target.closest('#zoom'))return;ptr.set(e.pointerId,[e.clientX,e.clientY]);if(ptr.size==1){pd=[e.clientX,e.clientY];mv=false;}else{pdist=dist2();pmid=null;mv=true;}});
+st.addEventListener('pointerdown',e=>{if(e.target.closest('#zoom,#leftRail,#rightRail,#dock'))return;ptr.set(e.pointerId,[e.clientX,e.clientY]);if(ptr.size==1){pd=[e.clientX,e.clientY];mv=false;}else{pdist=dist2();pmid=null;mv=true;}});
 st.addEventListener('pointermove',e=>{
   if(!ptr.has(e.pointerId))return;ptr.set(e.pointerId,[e.clientX,e.clientY]);
   if(ptr.size>=2){const nd=dist2(),a=[...ptr.values()],mx=(a[0][0]+a[1][0])/2,my=(a[0][1]+a[1][1])/2;if(pmid){S.px+=mx-pmid[0];S.py+=my-pmid[1];view();}pmid=[mx,my];if(pdist>0&&Math.abs(nd-pdist)>1){S.z=clamp(S.z*nd/pdist,.3,6);zsoft();}pdist=nd;return;}
