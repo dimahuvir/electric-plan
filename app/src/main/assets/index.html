@@ -30,7 +30,7 @@ background-color:var(--bg);background-image:repeating-linear-gradient(0deg,trans
 .bx.os{transform:translate(-50%,-50%) translateZ(-3px)}
 .jb.os{transform:translate(-50%,-50%) translateZ(-2px);border-style:dashed}
 .bx.os .c{border-style:dashed}
-.bx.os::after{content:'снаружи';position:absolute;left:100%;top:-8px;margin-left:3px;font:bold 8px sans-serif;color:var(--sub);white-space:nowrap}
+.bx.os.f::after{content:'снаружи';position:absolute;left:100%;top:-8px;margin-left:3px;font:bold 8px sans-serif;color:var(--sub);white-space:nowrap}
 .bx .pb{position:absolute;top:-11px;right:-12px;background:#000;color:#fff;font:bold 10px/13px sans-serif;border-radius:7px;padding:0 4px;font-style:normal}
 .jb{position:absolute;display:flex;align-items:center;justify-content:center;background:#e8b100;border:1.5px solid #000;transform:translate(-50%,-50%) translateZ(2px);font-weight:bold;color:#000}
 .jb.rd{border-radius:50%;background:#fff}
@@ -108,6 +108,7 @@ const LET='абвгде',GN={1:'одиночная',2:'двойная',3:'тро
 const NUDGE=[[-10,'← 10'],[-1,'← 1'],[1,'1 →'],[10,'10 →']];
 const tzOf=w=>w.tz!=null?w.tz:w.h-30;
 const gpOf=b=>b.gp!=null?b.gp:7.1;
+const elH=(b,k)=>{const e=b.eh&&b.eh[k];if(e!=null)return e;const g=b.ts.length;return b.or=='v'?bh(b)+((g-1)/2-k)*gpOf(b):bh(b);};
 const $=id=>document.getElementById(id);
 const num=v=>Math.max(0,parseFloat(v)||0),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
@@ -154,19 +155,33 @@ function unpair(id){const pi=pairInfo(id);if(!pi)return;[pi.p.a,pi.p.b].forEach(
 function renPair(a,v){const q=CR.pairs.find(p=>p.a==a);if(q&&v.trim())q.name=v.trim();redraw();}
 
 /* ---------- трубы ---------- */
-function pipesFor(t,n){return t=='o'?Math.ceil(n/3):(t=='s'||t=='p')?Math.ceil(n/2):t=='l'?n:Math.ceil(n/3);}
+const PW={o:1,s:1.5,p:1.5},MIXC='#d98a00';
+function pipesFor(t,n){return t=='l'?n:Math.ceil(n/3);}
+function combInfo(b){
+  const comb=b.ts.filter(t=>PW[t]);if(!comb.length)return null;
+  const load=comb.reduce((a,t)=>a+PW[t],0),n=Math.ceil(load/3-1e-9),kinds=['o','s','p'].filter(t=>comb.includes(t));
+  return {n,mixed:kinds.length>1,kinds,comb,color:kinds.length>1?MIXC:TC[kinds[0]]};
+}
 function pipeList(b){
   if(b.pc!=null)return Array(b.pc).fill(TC[b.ts[0]]);
-  const r=[];TYPES.forEach(t=>{const n=b.ts.filter(x=>x==t).length;for(let q=0;q<pipesFor(t,n);q++)r.push(TC[t]);});
+  const r=[],ci=combInfo(b);
+  if(ci)for(let q=0;q<ci.n;q++)r.push(ci.color);
+  ['l','x'].forEach(t=>{const n=b.ts.filter(x=>x==t).length;for(let q=0;q<pipesFor(t,n);q++)r.push(TC[t]);});
   return r;}
 const pcOf=b=>pipeList(b).length;
-function pipeInfo(b){if(b.pc!=null)return 'задано вручную';return TYPES.map(t=>{const n=b.ts.filter(x=>x==t).length;return n?TS[t]+' '+n+' → '+pipesFor(t,n):'';}).filter(Boolean).join(', ');}
+function pipeInfo(b){
+  if(b.pc!=null)return 'задано вручную';
+  const ci=combInfo(b),parts=[];
+  if(ci)parts.push(ci.kinds.map(t=>TS[t]+' '+ci.comb.filter(x=>x==t).length).join(' + ')+' → '+ci.n+(ci.mixed?' общ. тр.':' тр.'));
+  ['l','x'].forEach(t=>{const n=b.ts.filter(x=>x==t).length;if(n)parts.push(TS[t]+' '+n+' → '+pipesFor(t,n)+' тр.');});
+  return parts.join(', ');
+}
 
 function ring(){
   const cum=[0];for(let i=0;i<CR.n;i++)cum.push(cum[i]+CR.w[i].len);
   const all=[];CR.w.slice(0,CR.n).forEach((w,wi)=>w.b.forEach(b=>all.push({b,wi,s:cum[wi]+b.x})));
   all.sort((a,b)=>a.s-b.s);
-  const pw=Math.min(CR.p.w,CR.n-1),sp=cum[pw]+CR.p.x,nm={},br={},ed={},bn={};
+  const pw=Math.min(CR.p.w,CR.n-1),pxs=cum[pw]+CR.p.x,sp=CR.p.on!==false?pxs:(CR.p.e=='s'?cum[pw]:CR.p.e=='e'?cum[pw+1]:(Math.abs(pxs-cum[pw])<=Math.abs(pxs-cum[pw+1])?cum[pw]:cum[pw+1])),nm={},br={},ed={},bn={};
   const A=all.filter(o=>o.s<=sp),B=all.filter(o=>o.s>sp),cnt=L=>L.reduce((a,o)=>a+pcOf(o.b),0);
   [[A,1],[B,-1]].forEach(([L,dr])=>{
     const n=L.length;if(!n)return;
@@ -185,13 +200,30 @@ const jsOf=(R,b)=>extSingle(R,b)&&tight(CR.w[R.wo[b.id]],b)?'7x7':b.js;
 function pipesAt(R,s){return R.all.filter(o=>s<=R.sp?o.s<=s:(o.s>=s&&o.s>R.sp)).flatMap(o=>pipeList(o.b));}
 const cntAt=(R,s)=>pipesAt(R,s).length;
 function jbDim(js){const m=/(\d+(?:[.,]\d+)?)\D+(\d+(?:[.,]\d+)?)/.exec(js||'');const a=m?parseFloat(m[1].replace(',','.')):10,b=m?parseFloat(m[2].replace(',','.')):10;return [clamp(a*1.6,11,40),clamp(b*1.6,11,40),a+'×'+b];}
+function sepPass(it,min,lo,hi){
+  it.sort((a,b)=>a.y-b.y);const orig=it.map(e=>e.y);
+  for(let i=1;i<it.length;i++)it[i].y=Math.max(it[i].y,it[i-1].y+min);
+  const d=it.reduce((a,e,i)=>a+e.y-orig[i],0)/(it.length||1);it.forEach(e=>e.y-=d);
+  for(let i=0;i<it.length;i++)it[i].y=Math.max(it[i].y,lo+i*min);
+  for(let i=it.length-1;i>=0;i--)it[i].y=Math.min(it[i].y,hi-(it.length-1-i)*min);
+  for(let i=1;i<it.length;i++)it[i].y=Math.max(it[i].y,it[i-1].y+min);
+}
 function grpLay(w,b,L,H,ty,jh){
-  const g=b.ts.length,v=b.or=='v',gap=2*Q+Math.max(0,gpOf(b)-7.1)*K,ydes=(w.h-bh(b))*K,above=ydes<ty;
-  const lo=above?3*Q:ty+jh/2+3*Q,hi=above?ty-jh/2-3*Q:H-3*Q,cmax=18*Q,cmin=11*Q;
-  const c=v?clamp(Math.floor((hi-lo-(g-1)*gap)/g),cmin,cmax):clamp(Math.floor((L-6*Q-(g-1)*gap)/g),cmin,cmax);
-  const tw=v?c:g*c+(g-1)*gap,th=v?g*c+(g-1)*gap:c;
-  const cx=clamp(b.x*K,tw/2+3*Q,L-tw/2-3*Q),cy=clamp(ydes,lo+th/2,hi-th/2);
-  return {c,cx,cy,top:above?cy+th/2:cy-th/2,end:(v&&g>1)?(above?cy-th/2:cy+th/2):(above?cy+th/2:cy-th/2),tw,th,above,gap};
+  const g=b.ts.length,v=b.or=='v',gap=2*Q+Math.max(0,gpOf(b)-7.1)*K,cmax=18*Q,cmin=11*Q,jz=jh/2+3*Q;
+  const space=Math.max(H-3*Q-(ty+jz),ty-jz-3*Q);
+  const c=v?clamp(Math.floor((space-(g-1)*gap)/g),cmin,cmax):clamp(Math.floor((L-6*Q-(g-1)*gap)/g),cmin,cmax);
+  const yc=(w.h-bh(b))*K,eh=b.eh||[];
+  const els=b.ts.map((t,k)=>({k,dx:v?0:(k-(g-1)/2)*(c+gap),y:eh[k]!=null?(w.h-eh[k])*K:(v?yc+(k-(g-1)/2)*(c+gap):yc)}));
+  const upLo=3*Q+c/2,upHi=ty-jz-c/2,dnLo=ty+jz+c/2,dnHi=H-3*Q-c/2;
+  els.forEach(e=>{e.y=e.y<ty?clamp(e.y,upLo,Math.max(upLo,upHi)):clamp(e.y,dnLo,Math.max(dnLo,dnHi));});
+  if(v){sepPass(els.filter(e=>e.y<ty),c+2*Q,upLo,upHi);sepPass(els.filter(e=>e.y>=ty),c+2*Q,dnLo,dnHi);}
+  const tw=v?c:g*c+(g-1)*gap,ymin=Math.min(...els.map(e=>e.y)),ymax=Math.max(...els.map(e=>e.y)),th=ymax-ymin+c;
+  const up=els.filter(e=>e.y<ty),dn=els.filter(e=>e.y>=ty),ends=[];
+  const far=arr=>v||(Math.max(...arr.map(e=>e.y))-Math.min(...arr.map(e=>e.y)))>c*1.5;
+  if(dn.length){const a=Math.min(...dn.map(e=>e.y))-c/2,z=Math.max(...dn.map(e=>e.y))+c/2;ends.push(far(dn)?z:a);}
+  if(up.length){const a=Math.min(...up.map(e=>e.y))-c/2,z=Math.max(...up.map(e=>e.y))+c/2;ends.push(far(up)?a:z);}
+  const cx=clamp(b.x*K,tw/2+3*Q,L-tw/2-3*Q);
+  return {c,cx,els,ends,tw,th,gap};
 }
 
 /* ---------- 3D ---------- */
@@ -210,7 +242,7 @@ function draw3d(){
   for(let i=0;i<CR.n;i++){
     const w=CR.w[i],L=w.len*K,H=w.h*K,ty=(w.h-tzOf(w))*K,sp=Math.max(2.4,3.2*Q),lw=Math.min(3,1.7*Q),fs=Math.min(17,12*Q);pts.push([x,z]);
     let pn='',sv=`<svg width="${L}" height="${H}" viewBox="0 0 ${L} ${H}">`;
-    const ev=[0,w.len,...w.b.map(b=>b.x)];if(R.pw==i)ev.push(CR.p.x);
+    const ev=[0,w.len,...w.b.map(b=>b.x)];if(R.pw==i&&pOn())ev.push(CR.p.x);
     const xs=[...new Set(ev.map(v=>clamp(v,0,w.len)))].sort((a,b)=>a-b),segs=[];
     for(let k=0;k<xs.length-1;k++)segs.push({a:xs[k],b:xs[k+1],pl:pipesAt(R,R.cum[i]+(xs[k]+xs[k+1])/2)});
     const longest=segs.reduce((m,s)=>s.pl.length&&(!m||s.b-s.a>m.b-m.a)?s:m,null);
@@ -224,8 +256,8 @@ function draw3d(){
       L2.forEach((it,i)=>{it.p=Math.max(it.x,i?L2[i-1].p+(L2[i-1].ly.pw+it.ly.pw)/2+gapPx:0);});
       for(let i=L2.length-1;i>=0;i--){const it=L2[i],hi=L-it.ly.pw/2-3*Q,lo=it.ly.pw/2+3*Q;it.p=Math.min(it.p,i<L2.length-1?L2[i+1].p-(L2[i+1].ly.pw+it.ly.pw)/2-gapPx:hi,hi);it.p=Math.max(it.p,lo);}});
     items.forEach(it=>{it.ly.cx=it.p;const pl=pipeList(it.b),n=Math.min(pl.length,8),dsh=(it.b.sd||'in')=='out'?'4 3':'';
-      for(let q=0;q<n;q++){const o=(q-(n-1)/2)*sp;sv+=ln(it.p+o,ty,it.p+o,it.ly.end,pl[q],lw,dsh);}});
-    if(R.pw==i){const px=CR.p.x*K,py=(w.h-CR.p.h)*K,pw2=44*Q,ph=30*Q;
+      for(let q=0;q<n;q++){const o=(q-(n-1)/2)*sp;it.ly.ends.forEach(en=>{sv+=ln(it.p+o,ty,it.p+o,en,pl[q],lw,dsh);});}});
+    if(R.pw==i&&pOn()){const px=CR.p.x*K,py=(w.h-CR.p.h)*K,pw2=44*Q,ph=30*Q;
       const on=pOn();pn=`<div class="pn${sk=='panel'?' sel':''}${on?'':' off'}" data-pn="1" style="left:${px-pw2/2}px;top:${py-ph/2}px;width:${pw2}px;height:${ph}px;font-size:${(on?13:10)*Q}px;line-height:${ph-3}px">${on?'Щ':'вых.'}</div>`;
       for(let q=0;q<Math.min(R.pA.length,6);q++)sv+=ln(px-3*Q-q*sp,ty,px-3*Q-q*sp,py-ph/2,R.pA[q],lw);
       for(let q=0;q<Math.min(R.pB.length,6);q++)sv+=ln(px+3*Q+q*sp,ty,px+3*Q+q*sp,py-ph/2,R.pB[q],lw);
@@ -237,8 +269,8 @@ function draw3d(){
     w.b.forEach(b=>{
       const g=b.ts.length,sel=b.id==sid&&sk=='box'?' sel':'',jsel=b.id==sid&&sk=='jb'?' sel':'',ly=LY[b.id],rd=ly.rd,dm=ly.dm,pi=b.ts.includes('p')?pairInfo(b.id):null,os=(b.sd||'in')=='out'?' os':'';
       if(!b.nj)el+=`<div class="jb${rd?' rd':''}${jsel}${os}" data-id="${b.id}" style="left:${ly.cx}px;top:${ty}px;width:${(rd?22:dm[0])*Q}px;height:${(rd?22:dm[1])*Q}px;font-size:${Math.max(6,7*Q)}px">${rd?'⌀':dm[2]}</div>`;
-      const cells=b.ts.map((t,k)=>`<div class="c t${t}" style="background:${TC[t]};width:${ly.c}px;height:${ly.c}px;font-size:${ly.c<16?7:Math.min(14,9*Q)}px;line-height:${ly.c-3}px;margin:${b.or=='v'?'0 0 '+ly.gap+'px':'0 '+ly.gap+'px 0 0'}">${R.lab(b.id)}${g>1?LET[k]||'':''}</div>`).join('');
-      el+=`<div class="bx${sel}${os}" data-id="${b.id}" style="left:${ly.cx}px;top:${ly.cy}px;flex-direction:${b.or=='v'?'column':'row'}">${cells}${pi?`<i class="pb">${esc(pi.name)}</i>`:''}</div>`;});
+      b.ts.forEach((t,k)=>{const e=ly.els[k];
+        el+=`<div class="bx${sel}${os}${k==0?' f':''}" data-id="${b.id}" style="left:${ly.cx+e.dx}px;top:${e.y}px"><div class="c t${t}" style="background:${TC[t]};width:${ly.c}px;height:${ly.c}px;font-size:${ly.c<16?7:Math.min(14,9*Q)}px;line-height:${ly.c-3}px;margin:0">${R.lab(b.id)}${g>1?LET[k]||'':''}</div>${k==0&&pi?`<i class="pb">${esc(pi.name)}</i>`:''}</div>`;});});
     html+=`<div class="wall" style="width:${L}px;height:${H}px;transform:translate3d(${x}px,${-H/2}px,${z}px) rotateY(${th}deg)">${sv}${el}<span class="zb">${i+1}</span></div>`;
     x+=L*Math.cos(th*Math.PI/180);z-=L*Math.sin(th*Math.PI/180);th+=90;
   }
@@ -334,11 +366,12 @@ function popBox(p){
     const pos=b.fr=='R'?w.len-b.x:b.x;
     body=`<div class="q">С какой стороны стены</div>${seg([['in','Внутри комнаты'],['out','Снаружи (с другой стороны)']],b.sd||'in',v=>`eb('sd','${v}')`)}<div class="q">Подвинуть по стене</div>${seg(NUDGE,null,v=>`nudge(${v})`)}<div class="hint">Расстояние считать от:</div>${seg([['L','левого края'],['R','правого края']],b.fr,v=>`eb('fr','${v}')`)}`+
     `<div class="row"><label>Расстояние, см<input type="number" value="${Math.round(pos)}" onchange="eb('pos',this.value)"></label><label>Высота от пола, см${b.hc==null?' (авто)':''}<input type="number" value="${bh(b)}" onchange="eb('hc',this.value)"></label>${b.hc!=null?`<button onclick="eb('hc','')">Авто</button>`:''}</div>`+
+    (g>1?`<div class="q">Высота каждой коробки от пола, см</div>${b.ts.map((t,k)=>`<div class="row" style="align-items:center"><b style="width:20px">${LET[k]}</b><button onclick="ehAdd(${k},-5)">−5</button><input type="number" style="width:84px" value="${Math.round(elH(b,k))}" onchange="ehSet(${k},this.value)"><button onclick="ehAdd(${k},5)">+5</button>${b.eh&&b.eh[k]!=null?`<button onclick="ehSet(${k},'')">Авто</button>`:'<span class="hint">авто</span>'}</div>`).join('')}`:'')+
     `<div class="row"><button onclick="near(-1)">+ коробка слева</button><button onclick="near(1)">+ коробка справа</button><button class="danger" onclick="delBox()">Удалить</button></div>`;
   }else if(tab=='pipe'){
     const pc=pcOf(b);
     body=`<div class="q">Труб на это место: ${pc}${b.pc==null?' (авто)':''}</div><div class="hint">${pipeInfo(b)}</div>${stp(`eb('pc',${Math.max(1,pc-1)})`,pc,`eb('pc',${pc+1})`)}${b.pc!=null?`<button onclick="eb('pc','')">Вернуть авто</button>`:''}`+
-    `<div class="hint">Правила: у каждого типа в группе своя труба. Розетки: 1–3 шт — 1 труба, с 4 — +1. Выключатели и проходные: 1–2 шт — 1 труба, с 3 — +1. Каждая LED-спираль — отдельная труба.</div>`;
+    `<div class="hint">Правила: розетки, выключатели и проходные, которые стоят в одной линии (в группе), идут в общих трубах. В одну трубу помещаются, например, 3 розетки, или 2 выключателя, или розетка + выключатель. Если не помещается, добавляется ещё труба. Каждая LED-спираль — отдельная труба. Цвет общей трубы — янтарный.</div>`;
   }else body=tabBack(R,b,pi);
   return {modal:false,title:`${dotsH(b.ts)} Подрозетник №${R.lab(b.id)}${pi?' · «'+esc(pi.name)+'»':''}`,tabs:tabsH(BT,tab,v=>`setTab('${v}')`),body};
 }
@@ -453,13 +486,18 @@ function tzAll(){const t=tzOf(CW());CR.w.forEach(x=>{x.tz=clamp(t,20,x.h-5);});r
 
 /* щиток */
 function popPanel(){
-  const R=ring(),w=CR.w[R.pw];
-  return {modal:false,title:'<span style="display:inline-block;width:16px;height:16px;background:#444;border:1.5px solid #000;vertical-align:middle;margin-right:6px"></span>'+(pOn()?'Щиток':'Выход труб (щитка нет)'),tabs:'',body:
-  `<div class="row">${pOn()?'<button class="danger" onclick="CR.p.on=false;redraw()">🗑 Удалить щиток</button>':'<button class="go" onclick="CR.p.on=true;redraw()">+ Вернуть щиток</button>'}</div>`+
-  `<div class="hint">${pOn()?'Сюда сходятся все трубы.':'Щитка здесь нет: трубы идут к точке выхода — в другую комнату или на общий щиток.'} Пришло: ${R.nA?(R.two?'слева ':'')+R.nA+' тр.':''}${R.nB?' · справа '+R.nB+' тр.':''} · всего ${R.N}.</div>`+
-  `<div class="q">На какой стене</div>${seg([...Array(CR.n).keys()].map(i=>[i,'Стена '+(i+1)]),R.pw,v=>`CR.p.w=${v};CR.p.x=Math.min(CR.p.x,CR.w[${v}].len);redraw()`)}`+
-  `<div class="q">Подвинуть по стене</div>${seg(NUDGE,null,v=>`nudgeP(${v})`)}`+
-  `<div class="row"><label>От левого края стены, см<input type="number" value="${CR.p.x}" onchange="CR.p.x=clamp(num(this.value),0,${w.len});redraw()"></label><label>Высота центра, см<input type="number" value="${CR.p.h}" onchange="CR.p.h=num(this.value);redraw()"></label></div>`};
+  const R=ring(),w=CR.w[R.pw],on=pOn();
+  const arr=`Пришло: ${R.nA?(R.two?'слева ':'')+R.nA+' тр.':''}${R.nB?' · справа '+R.nB+' тр.':''} · всего ${R.N}.`;
+  const wallSeg=seg([...Array(CR.n).keys()].map(i=>[i,'Стена '+(i+1)]),R.pw,v=>`CR.p.w=${v};CR.p.x=Math.min(CR.p.x,CR.w[${v}].len);redraw()`);
+  const btn=`<div class="row">${on?'<button class="danger" onclick="CR.p.on=false;redraw()">🗑 Удалить щиток</button>':'<button class="go" onclick="CR.p.on=true;redraw()">+ Вернуть щиток</button>'}</div>`;
+  const body=on?btn+
+    `<div class="hint">Сюда сходятся все трубы. ${arr}</div><div class="q">На какой стене</div>${wallSeg}`+
+    `<div class="q">Подвинуть по стене</div>${seg(NUDGE,null,v=>`nudgeP(${v})`)}`+
+    `<div class="row"><label>От левого края стены, см<input type="number" value="${CR.p.x}" onchange="CR.p.x=clamp(num(this.value),0,${w.len});redraw()"></label><label>Высота центра, см<input type="number" value="${CR.p.h}" onchange="CR.p.h=num(this.value);redraw()"></label></div>`
+   :btn+
+    `<div class="hint">Щитка здесь нет. Трубы идут по стенам до конца стены и там заканчиваются. ${arr}</div><div class="q">На какой стене кончаются трубы</div>${wallSeg}`+
+    `<div class="q">В какую сторону они идут</div>${seg([['s','← к началу стены'],['e','к концу стены →']],R.sp==R.cum[R.pw]?'s':'e',v=>`CR.p.e='${v}';redraw()`)}`;
+  return {modal:false,title:'<span style="display:inline-block;width:16px;height:16px;background:#444;border:1.5px solid #000;vertical-align:middle;margin-right:6px"></span>'+(on?'Щиток':'Щитка нет · конец труб'),tabs:'',body};
 }
 
 /* комнаты */
@@ -495,7 +533,7 @@ function uw(i,k,v){const w=CR.w[i];w[k]=Math.max(10,num(v));if(k=='len'){if(!w.t
 function calc(rm){return withRoom(rm,()=>{
   const R=ring(),pw=CR.w[R.pw],tot={},js={},cnt={};let pipes=0,rb=0;
   const rows=R.all.slice().sort((a,b)=>R.br[a.b.id]!=R.br[b.b.id]?(R.br[a.b.id]>R.br[b.b.id]?1:-1):R.nm[a.b.id]-R.nm[b.b.id]).map(o=>{
-    const b=o.b,w=CR.w[o.wi],pc=pcOf(b),len=Math.abs(tzOf(w)-bh(b))+(b.or=='v'&&b.ts.length>1?(b.ts.length-1)*gpOf(b)/2:0)+Math.abs(o.s-R.sp)+Math.abs(tzOf(w)-tzOf(pw))+Math.abs(tzOf(pw)-CR.p.h),pi=b.ts.includes('p')?pairInfo(b.id):null;
+    const b=o.b,w=CR.w[o.wi],pc=pcOf(b),len=Math.max(...b.ts.map((t,k)=>Math.abs(tzOf(w)-elH(b,k))))+Math.abs(o.s-R.sp)+(pOn()?Math.abs(tzOf(w)-tzOf(pw))+Math.abs(tzOf(pw)-CR.p.h):0),pi=b.ts.includes('p')?pairInfo(b.id):null;
     pipes+=len*pc;
     if(!b.nj){if(isRd(R,b))rb++;else{const k=jsOf(R,b);js[k]=(js[k]||0)+1;}}
     b.ts.forEach(t=>{cnt[t]=(cnt[t]||0)+1;WIRES[t].forEach(([c,s])=>{const k=c+'|'+s;tot[k]=(tot[k]||0)+len+15+(CR.p.on!==false?50:0);});});
@@ -534,12 +572,14 @@ function popTot(){
 function redraw(){syncPairs();renderTop();renderDock();renderPop();draw3d();renderEmpty();save();}
 function near(d){const o=curO();if(!o)return;const w=CR.w[o.wi],b=mkBox(clamp(o.b.x+d*50,0,w.len),'o');w.b.push(b);w.touched=true;S.pop={k:'box',id:b.id,tab:'comp'};redraw();}
 function nudge(d){const o=curO();if(!o)return;o.b.x=clamp(o.b.x+d,0,CR.w[o.wi].len);CR.w[o.wi].touched=true;redraw();}
+function ehSet(k,v){const o=curO();if(!o)return;const b=o.b;b.eh=b.eh||[];b.eh[k]=v===''?null:clamp(num(v),0,CR.w[o.wi].h);CR.w[o.wi].touched=true;redraw();}
+function ehAdd(k,d){const o=curO();if(o)ehSet(k,elH(o.b,k)+d);}
 function gpAdd(d){const o=curO();if(o)eb('gp',gpOf(o.b)+d);}
 function nudgeP(d){CR.p.x=clamp(CR.p.x+d,0,CR.w[CR.p.w].len);redraw();}
 function delBox(){const o=curO();if(!o)return;const w=CR.w[o.wi];w.b=w.b.filter(b=>b.id!=o.b.id);if(!w.touched)respread(w);S.pop=null;redraw();}
 function et(k,v){const o=curO();if(!o)return;CR.w[o.wi].touched=true;o.b.ts[k]=v;if(k==0)o.b.hc=null;redraw();}
 function eb(f,v){const o=curO();if(!o)return;const b=o.b,w=CR.w[o.wi];w.touched=true;
-  if(f=='g'){const k=+v;while(b.ts.length<k)b.ts.push(b.ts[b.ts.length-1]);b.ts.length=k;b.pc=null;}
+  if(f=='g'){const k=+v;while(b.ts.length<k)b.ts.push(b.ts[b.ts.length-1]);b.ts.length=k;b.pc=null;if(b.eh)b.eh=b.eh.slice(0,k);}
   else if(f=='pc'){b.pc=v===''?null:Math.max(1,Math.round(num(v)));}
   else if(f=='name'){b.name=v;const g=guess(v);if(g){b.ts[0]=g;b.hc=null;}}
   else if(f=='pos'){const p=clamp(num(v),0,w.len);b.x=b.fr=='R'?w.len-p:p;}
