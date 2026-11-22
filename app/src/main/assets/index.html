@@ -23,6 +23,8 @@ background-color:var(--bg);background-image:repeating-linear-gradient(0deg,trans
 .wall{position:absolute;left:0;top:0;transform-origin:0 0;background:rgba(42,63,158,.12);border:2px solid var(--acc);transform-style:preserve-3d;color:var(--ink)}
 .wall svg{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
 .zb{position:absolute;right:8px;top:50%;font-size:30px;opacity:.22;pointer-events:none}
+.wn{position:absolute;left:4px;top:3px;background:var(--ink);color:var(--bg);font:bold 12px/1 sans-serif;padding:3px 6px;border-radius:6px;pointer-events:none;transform:translateZ(1px)}
+.floor{position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none;background-color:rgba(130,140,160,.14);background-image:linear-gradient(rgba(120,130,150,.3) 1px,transparent 1px),linear-gradient(90deg,rgba(120,130,150,.3) 1px,transparent 1px)}
 .bx{position:absolute;display:flex;transform:translate(-50%,-50%) translateZ(1px)}
 .c{box-sizing:border-box;position:relative;overflow:hidden;background:var(--card);border-style:solid;border-radius:6px}
 .c .si{position:absolute;inset:1px}
@@ -96,6 +98,13 @@ ol.tl{margin:4px 0 0;padding-left:20px;font-size:13px}
 .rv svg,.jbw svg{display:block;margin:0 auto;width:100%;max-width:300px}
 .pv{background:#e8b100;border:1.5px solid #000;margin:6px 0;display:flex;align-items:center;justify-content:center;font:bold 11px sans-serif;color:#000}
 textarea{width:100%;height:150px;font-size:12px}
+.wgrid{display:grid;grid-template-columns:48px 1fr 1fr;gap:6px;align-items:center;margin:4px 0}
+.wgrid input{width:100%;padding:6px 8px}
+.wgrid .hd{font-size:11px;color:var(--sub)}
+.btns2{display:flex;gap:6px}.btns2 button{flex:1;padding:6px 4px;font-size:13px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.g3 label{display:flex;flex-direction:column;font-size:11px;color:var(--sub);gap:2px}
+.g3 input{width:100%;padding:6px 8px}
 </style></head><body>
 <div id="app">
 <div id="top"></div>
@@ -199,19 +208,30 @@ function pipeInfo(b){
   return parts.join(', ');
 }
 
+function trunkPipes(bs){
+  const r=[],cnt={w:0,l:0,x:0},kinds=new Set();let load=0;
+  bs.forEach(b=>{
+    if(b.pc!=null){for(let q=0;q<b.pc;q++)r.push(TC[b.ts[0]]);return;}
+    b.ts.forEach(t=>{if(PW[t]){load+=PW[t];kinds.add(t);}else cnt[t]++;});
+  });
+  const nC=load?Math.ceil(load/3-1e-9):0,col=kinds.size>1?MIXC:(kinds.size?TC[[...kinds][0]]:'');
+  for(let q=0;q<nC;q++)r.push(col);
+  ['w','l','x'].forEach(t=>{for(let q=0;q<pipesFor(t,cnt[t]);q++)r.push(TC[t]);});
+  return r;
+}
 function ring(){
   const cum=[0];for(let i=0;i<CR.n;i++)cum.push(cum[i]+CR.w[i].len);
   const all=[];CR.w.slice(0,CR.n).forEach((w,wi)=>w.b.forEach(b=>all.push({b,wi,s:cum[wi]+b.x})));
   all.sort((a,b)=>a.s-b.s);
   const pw=Math.min(CR.p.w,CR.n-1),pxs=cum[pw]+CR.p.x,sp=CR.p.on!==false?pxs:(CR.p.e=='s'?cum[pw]:CR.p.e=='e'?cum[pw+1]:(Math.abs(pxs-cum[pw])<=Math.abs(pxs-cum[pw+1])?cum[pw]:cum[pw+1])),nm={},br={},ed={},bn={};
-  const A=all.filter(o=>o.s<=sp),B=all.filter(o=>o.s>sp),cnt=L=>L.reduce((a,o)=>a+pcOf(o.b),0);
+  const A=all.filter(o=>o.s<=sp),B=all.filter(o=>o.s>sp),cnt=L=>trunkPipes(L.map(o=>o.b)).length;
   [[A,1],[B,-1]].forEach(([L,dr])=>{
     const n=L.length;if(!n)return;
     ed[L[dr>0?0:n-1].b.id]=true;
     L.forEach((o,i)=>{nm[o.b.id]=dr>0?n-i:i+1;br[o.b.id]=dr>0?'Л':'П';bn[o.b.id]=n;});
   });
   const two=A.length>0&&B.length>0,wo={};all.forEach(o=>wo[o.b.id]=o.wi);
-  return {wo,cum,all,G:all.length,N:cnt(all),nA:cnt(A),nB:cnt(B),pA:A.flatMap(o=>pipeList(o.b)),pB:B.flatMap(o=>pipeList(o.b)),nm,br,ed,bn,two,pw,sp,lab:id=>(two?br[id]:'')+nm[id]};
+  return {wo,cum,all,G:all.length,N:cnt(A)+cnt(B),nA:cnt(A),nB:cnt(B),pA:trunkPipes(A.map(o=>o.b)),pB:trunkPipes(B.map(o=>o.b)),nm,br,ed,bn,two,pw,sp,lab:id=>(two?br[id]:'')+nm[id]};
 }
 const jbCm=js=>{const m=/(\d+(?:[.,]\d+)?)\D+(\d+(?:[.,]\d+)?)/.exec(js||'');return m?[parseFloat(m[1].replace(',','.')),parseFloat(m[2].replace(',','.'))]:[10,10];};
 const placeCm=b=>Math.max(jbCm(b.js)[0],b.or=='v'?7.1:(b.ts.length-1)*gpOf(b)+7.1);
@@ -219,7 +239,7 @@ const tight=(w,b)=>w.b.some(o=>o!==b&&(o.sd||'in')==(b.sd||'in')&&Math.abs(o.x-b
 const extSingle=(R,b)=>!b.nj&&!!R.ed[b.id]&&R.bn[b.id]>1&&b.ts.length==1&&(b.ts[0]=='o'||b.ts[0]=='s');
 const isRd=(R,b)=>extSingle(R,b)&&!tight(CR.w[R.wo[b.id]],b);
 const jsOf=(R,b)=>extSingle(R,b)&&tight(CR.w[R.wo[b.id]],b)?'7x7':b.js;
-function pipesAt(R,s){return R.all.filter(o=>s<=R.sp?o.s<=s:(o.s>=s&&o.s>R.sp)).flatMap(o=>pipeList(o.b));}
+function pipesAt(R,s){return trunkPipes(R.all.filter(o=>s<=R.sp?o.s<=s:(o.s>=s&&o.s>R.sp)).map(o=>o.b));}
 const cntAt=(R,s)=>pipesAt(R,s).length;
 function jbDim(js){const m=/(\d+(?:[.,]\d+)?)\D+(\d+(?:[.,]\d+)?)/.exec(js||'');const a=m?parseFloat(m[1].replace(',','.')):10,b=m?parseFloat(m[2].replace(',','.')):10;return [clamp(a*1.6,11,40),clamp(b*1.6,11,40),a+'×'+b];}
 function sepPass(it,min,lo,hi){
@@ -293,10 +313,16 @@ function draw3d(){
       if(!b.nj)el+=`<div class="jb${rd?' rd':''}${jsel}${os}" data-id="${b.id}" style="left:${ly.cx}px;top:${ty}px;width:${(rd?22:dm[0])*Q}px;height:${(rd?22:dm[1])*Q}px;font-size:${Math.max(6,7*Q)}px">${rd?'⌀':dm[2]}</div>`;
       b.ts.forEach((t,k)=>{const e=ly.els[k];
         el+=`<div class="bx${sel}${os}${k==0?' f':''}" data-id="${b.id}" style="left:${ly.cx+e.dx}px;top:${e.y}px"><div class="c t${t}" style="border-color:${TC[t]};border-width:${Math.max(1.5,1.4*Q)}px;width:${ly.c}px;height:${ly.c}px;margin:0"><div class="si">${symSvg(t,'100%')}</div><span class="nb" style="font-size:${Math.max(6.5,Math.min(12,ly.c*.4))}px">${R.lab(b.id)}${g>1?LET[k]||'':''}</span></div>${k==0&&pi?`<i class="pb">${esc(pi.name)}</i>`:''}</div>`;});});
-    html+=`<div class="wall" style="width:${L}px;height:${H}px;transform:translate3d(${x}px,${-H/2}px,${z}px) rotateY(${th}deg)">${sv}${el}<span class="zb">${i+1}</span></div>`;
+    html+=`<div class="wall" style="width:${L}px;height:${H}px;transform:translate3d(${x}px,${hmax*K/2-H}px,${z}px) rotateY(${th}deg)">${sv}${el}<span class="zb">${i+1}</span><span class="wn">${i+1}</span></div>`;
     x+=L*Math.cos(th*Math.PI/180);z-=L*Math.sin(th*Math.PI/180);th+=90;
   }
   pts.push([x,z]);
+  {const n=CR.n,y0=hmax*K/2;let fp;
+   if(n==1){const dd=Math.min(CR.w[0].len*.75,350)*K;fp=[pts[0],pts[1],[pts[1][0],pts[1][1]-dd],[pts[0][0],pts[0][1]-dd]];}
+   else if(n==2)fp=[pts[0],pts[1],pts[2],[pts[0][0]+pts[2][0]-pts[1][0],pts[0][1]+pts[2][1]-pts[1][1]]];
+   else fp=pts.slice(0,4);
+   const fx=fp.map(q=>q[0]),fz=fp.map(q=>q[1]),mnx=Math.min(...fx),mxx=Math.max(...fx),mnz=Math.min(...fz),mxz=Math.max(...fz);
+   html=`<div class="floor" style="width:${mxx-mnx}px;height:${mxz-mnz}px;background-size:${50*K}px ${50*K}px;transform:translate3d(${mnx}px,${y0}px,${mnz}px) rotateX(90deg);clip-path:polygon(${fp.map(q=>(q[0]-mnx)+'px '+(q[1]-mnz)+'px').join(',')})"></div>`+html;}
   C=[pts.reduce((a,p)=>a+p[0],0)/pts.length,pts.reduce((a,p)=>a+p[1],0)/pts.length];
   $('world').innerHTML=html;view();
 }
@@ -350,7 +376,7 @@ function undo(){
 /* ---------- окна ---------- */
 function openPop(k,o){S.pop=Object.assign({k},o||{});S.cdel=null;redraw();}
 function closePop(){S.pop=null;redraw();}
-function pick(id){const o=boxById(id);if(!o)return;S.cw=o.wi;S.pop={k:'box',id,tab:o.b.ts.includes('p')?'back':'comp'};redraw();}
+function pick(id){const o=boxById(id);if(!o)return;S.cw=o.wi;S.pop={k:'box',id,tab:o.b.ts.includes('p')?'back':'pos'};redraw();}
 function openWire(id){const o=boxById(id);if(!o)return;S.cw=o.wi;S.pop={k:'jb',id,tab:'sch'};redraw();}
 function setTab(t){if(t=='jb'){openWire(S.pop.id);return;}S.pop.tab=t;redraw();}
 let pkey='';
@@ -379,10 +405,10 @@ function pairUI(R,b){
   if(cand.length)h+=`<div class="hint">Связать с другим:</div><div class="row">${cand.map(c=>`<button onclick="mkPair(${b.id},${c[0]})">${c[1]}</button>`).join('')}</div>`;
   return h;
 }
-const BT=[['comp','Состав'],['pos','Место'],['pipe','Трубы'],['back','Сзади'],['jb','Коробка ▣']];
+const BT=[['pos','Место'],['comp','Состав'],['pipe','Трубы'],['back','Сзади'],['jb','Коробка ▣']];
 function popBox(p){
   const o=boxById(p.id);if(!o)return null;
-  const b=o.b,w=CR.w[o.wi],R=ring(),pi=b.ts.includes('p')?pairInfo(b.id):null,tab=p.tab||'comp',g=b.ts.length;
+  const b=o.b,w=CR.w[o.wi],R=ring(),pi=b.ts.includes('p')?pairInfo(b.id):null,tab=p.tab||'pos',g=b.ts.length;
   let body='';
   if(tab=='comp'){
     body=`<div class="q">Сколько коробок рядом: ${g} — ${GN[g]}</div>${seg([1,2,3,4,5,6].map(k=>[k,k]),g,v=>`eb('g',${v})`)}`+
@@ -398,8 +424,8 @@ function popBox(p){
     `<div class="row"><button onclick="near(-1)">+ коробка слева</button><button onclick="near(1)">+ коробка справа</button><button class="danger" onclick="delBox()">Удалить</button></div>`;
   }else if(tab=='pipe'){
     const pc=pcOf(b);
-    body=`<div class="q">Труб на это место: ${pc}${b.pc==null?' (авто)':''}</div><div class="hint">${pipeInfo(b)}</div>${stp(`eb('pc',${Math.max(1,pc-1)})`,pc,`eb('pc',${pc+1})`)}${b.pc!=null?`<button onclick="eb('pc','')">Вернуть авто</button>`:''}`+
-    `<div class="hint">Правила: розетки, выключатели и проходные, которые стоят в одной линии (в группе), идут в общих трубах. В одну трубу помещаются, например, 3 розетки, или 2 выключателя, или розетка + выключатель. Если не помещается, добавляется ещё труба. Каждая LED-спираль — отдельная труба. Цвет общей трубы — коричнево-рыжий. Лампы идут отдельными трубами.</div>`;
+    body=`<div class="q">Вертикальных труб на это место: ${pc}${b.pc==null?' (авто)':''}</div><div class="hint">${pipeInfo(b)}</div>${stp(`eb('pc',${Math.max(1,pc-1)})`,pc,`eb('pc',${pc+1})`)}${b.pc!=null?`<button onclick="eb('pc','')">Вернуть авто</button>`:''}`+
+    `<div class="hint">Это трубы от коробки до горизонтали. Горизонтальные трубы общие: коробки со всех стен делят одну трубу, пока в неё помещается. В одну трубу помещаются 3 розетки, или 2 выключателя (проходных), или розетка + выключатель. Не помещается — добавляется ещё труба. Лампы — по 3 в трубу, каждая LED-спираль — отдельная труба. Цвет общей трубы — коричнево-рыжий.</div>`;
   }else body=tabBack(R,b,pi);
   return {modal:false,title:`${dotsH(b.ts)} Подрозетник №${R.lab(b.id)}${pi?' · «'+esc(pi.name)+'»':''}`,tabs:tabsH(BT,tab,v=>`setTab('${v}')`),body};
 }
@@ -550,24 +576,35 @@ function popIo(){
 }
 function loadIo(){try{const j=JSON.parse($('iot').value);if(!j.P||!j.P.rooms||!j.P.rooms.length)throw 0;P=j.P;fixHd();S.ri=Math.min(j.ri||0,P.rooms.length-1);CR=P.rooms[S.ri];S.cw=0;S.hist=[];S.pop=null;redraw();}catch(e){alert('Не получилось прочитать текст проекта.');}}
 function popRoom(){
-  let h=`<div class="row"><label>Название<input type="text" style="width:190px" value="${esc(CR.name)}" onchange="renRoom(${S.ri},this.value)"></label></div><div class="q">Сколько стен в комнате</div>${seg([1,2,3,4].map(k=>[k,k]),CR.n,v=>`setRN(${v})`)}<div class="hint">1 — прямая, 2 — буква Г, 3 — буква П, 4 — квадрат.</div><div class="q">Размеры стен</div>`;
-  for(let i=0;i<CR.n;i++){const w=CR.w[i];h+=`<div class="row"><b>Стена ${i+1}</b><label>Длина, см<input type="number" value="${w.len}" onchange="uw(${i},'len',this.value)"></label><label>Высота, см<input type="number" value="${w.h}" onchange="uw(${i},'h',this.value)"></label></div>`;}
-  h+=`<div class="q">Высоты по умолчанию (от пола, см)</div><div class="row">${TYPES.map(k=>`<label>${TS[k]}<input type="number" style="width:70px" value="${P.hd[k]}" onchange="P.hd['${k}']=num(this.value);redraw()"></label>`).join('')}</div><div class="row"><button onclick="openPop('panel')">▮ Щиток / выход труб</button></div>`;
+  let h=`<div class="row" style="align-items:center;margin:2px 0"><input type="text" style="flex:1;min-width:110px" value="${esc(CR.name)}" onchange="renRoom(${S.ri},this.value)"><div style="width:150px">${seg([1,2,3,4].map(k=>[k,k]),CR.n,v=>`setRN(${v})`)}</div></div><div class="hint" style="margin:0">Стен: 1 — прямая, 2 — Г, 3 — П, 4 — квадрат.</div>`+
+  `<div class="q" style="margin-top:6px">Размеры стен</div><div class="wgrid"><span></span><span class="hd">Длина, см</span><span class="hd">Высота, см</span>`;
+  for(let i=0;i<CR.n;i++){const w=CR.w[i];
+    h+=`<b>Ст.${i+1}</b><input type="number" value="${w.len}" onchange="uw(${i},'len',this.value)"><input type="number" value="${w.h}" onchange="uw(${i},'h',this.value)">`;
+    if(i==0)h+=`<div class="btns2" style="grid-column:1/-1"><button onclick="wAll(0,'len')">⇉ длина всем</button><button onclick="wAll(0,'h')">⇉ высота всем</button></div>`;}
+  h+=`</div><div class="hint" style="margin:0">Размер стены 1 сам встаёт на все стены, пока другую не поправишь вручную.</div>`+
+  `<div class="q" style="margin-top:8px">Высоты по умолчанию от пола, см</div><div class="g3">${TYPES.map(k=>`<label>${TS[k]}<input type="number" value="${P.hd[k]}" onchange="P.hd['${k}']=num(this.value);redraw()"></label>`).join('')}</div><div class="row"><button onclick="openPop('panel')">▮ Щиток / выход труб</button></div>`;
   return {modal:true,title:'Комната: настройки',tabs:'',body:h};
 }
 function setRN(n){CR.n=n;S.cw=Math.min(S.cw,n-1);CR.p.w=Math.min(CR.p.w,n-1);redraw();}
-function uw(i,k,v){const w=CR.w[i];w[k]=Math.max(10,num(v));if(k=='len'){if(!w.touched)respread(w);else w.b.forEach(b=>b.x=Math.min(b.x,w.len));}redraw();}
+function applyW(w,k){if(k=='len'){if(!w.touched)respread(w);else w.b.forEach(b=>b.x=Math.min(b.x,w.len));}else if(w.tz!=null)w.tz=clamp(w.tz,20,w.h-5);}
+function uw(i,k,v){const w=CR.w[i];w[k]=Math.max(10,num(v));applyW(w,k);
+  if(i==0)CR.w.forEach((x,j)=>{if(j>0&&!x['o'+k]){x[k]=w[k];applyW(x,k);}});else w['o'+k]=true;
+  redraw();}
+function wAll(i,k){const v=CR.w[i][k];CR.w.forEach((x,j)=>{if(j!==i){x[k]=v;delete x['o'+k];applyW(x,k);}});redraw();}
 
 /* итоги */
 function calc(rm){return withRoom(rm,()=>{
-  const R=ring(),pw=CR.w[R.pw],tot={},js={},cnt={};let pipes=0,rb=0;
+  const R=ring(),pw=CR.w[R.pw],tot={},js={},cnt={};let vp=0,rb=0;
   const rows=R.all.slice().sort((a,b)=>R.br[a.b.id]!=R.br[b.b.id]?(R.br[a.b.id]>R.br[b.b.id]?1:-1):R.nm[a.b.id]-R.nm[b.b.id]).map(o=>{
-    const b=o.b,w=CR.w[o.wi],pc=pcOf(b),len=Math.max(...b.ts.map((t,k)=>Math.abs(tzOf(w)-elH(b,k))))+Math.abs(o.s-R.sp)+(pOn()?Math.abs(tzOf(w)-tzOf(pw))+Math.abs(tzOf(pw)-CR.p.h):0),pi=b.ts.includes('p')?pairInfo(b.id):null;
-    pipes+=len*pc;
+    const b=o.b,w=CR.w[o.wi],pc=pcOf(b),vlen=Math.max(...b.ts.map((t,k)=>Math.abs(tzOf(w)-elH(b,k)))),hlen=Math.abs(o.s-R.sp)+(pOn()?Math.abs(tzOf(w)-tzOf(pw))+Math.abs(tzOf(pw)-CR.p.h):0),len=vlen+hlen,pi=b.ts.includes('p')?pairInfo(b.id):null;
+    vp+=vlen*pc;
     if(!b.nj){if(isRd(R,b))rb++;else{const k=jsOf(R,b);js[k]=(js[k]||0)+1;}}
     b.ts.forEach(t=>{cnt[t]=(cnt[t]||0)+1;WIRES[t].forEach(([c,s])=>{const k=c+'|'+s;tot[k]=(tot[k]||0)+len+15+(CR.p.on!==false?50:0);});});
-    return {lab:R.lab(b.id),b,wi:o.wi,pc,len,pi};});
-  return {rm,R,rows,tot,js,cnt,rb,pipes};
+    return {lab:R.lab(b.id),b,wi:o.wi,pc,len,vlen,hlen,pi};});
+  const ev=[...new Set([0,R.cum[R.cum.length-1],R.sp,...R.all.map(o=>o.s)])].sort((a,b)=>a-b);
+  let hm=0;for(let i=0;i<ev.length-1;i++)hm+=pipesAt(R,(ev[i]+ev[i+1])/2).length*(ev[i+1]-ev[i]);
+  if(pOn())hm+=R.N*Math.abs(tzOf(pw)-CR.p.h);
+  return {rm,R,rows,tot,js,cnt,rb,pipes:vp+hm,vp,hm};
 });}
 const GNn=g=>GN[g];
 function refTable(){return `<table><tr><th>Тип</th><th>Провода</th><th>Что с чем</th></tr>${TYPES.map(t=>`<tr><td>${TN[t]}</td><td>${WIRES[t].map(([c])=>`<span class="sw" style="background:${WC[c]}"></span>${CN[c]}`).join('<br>')}<br><b>${WIRES[t].length} × ${fmt(WIRES[t][0][1])} мм²</b></td><td>${WHERE[t]}</td></tr>`).join('')}</table>`;}
@@ -579,7 +616,7 @@ function popTot(){
     if(!all1){const d=D[0],R=d.R;
       if(!R.G)body='<div class="hint">В этой комнате пока нет коробок.</div>';
       else{
-        body=`<table><tr><th>№</th><th>Что</th><th>Ст.</th><th>Выс.</th><th>Труб × м</th></tr>${d.rows.map(r=>`<tr><td>${r.lab}</td><td>${r.b.ts.length>1?GN[r.b.ts.length]+(r.b.or=='v'?' верт.':' гориз.')+': ':''}${r.b.ts.map(t=>TS[t]).join('+')}${r.pi?' «'+esc(r.pi.name)+'»':''}${r.b.name?' ('+esc(r.b.name)+')':''}</td><td>${r.wi+1}</td><td>${bh(r.b)}</td><td>${r.pc} × ${fmt((Math.round(r.len)/100).toFixed(2))}</td></tr>`).join('')}</table>`+
+        body=`<table><tr><th>№</th><th>Что</th><th>Ст.</th><th>Выс.</th><th>Верт. труб × м</th></tr>${d.rows.map(r=>`<tr><td>${r.lab}</td><td>${r.b.ts.length>1?GN[r.b.ts.length]+(r.b.or=='v'?' верт.':' гориз.')+': ':''}${r.b.ts.map(t=>TS[t]).join('+')}${r.pi?' «'+esc(r.pi.name)+'»':''}${r.b.name?' ('+esc(r.b.name)+')':''}</td><td>${r.wi+1}</td><td>${bh(r.b)}</td><td>${r.pc} × ${fmt((Math.round(r.vlen)/100).toFixed(2))}</td></tr>`).join('')}</table><div class="note">Вертикальные трубы: ${fmt((Math.ceil(d.vp/10)/10).toFixed(1))} м. Горизонтальные (общие): ${fmt((Math.ceil(d.hm/10)/10).toFixed(1))} м.</div>`+
         `<div class="q">${pOn()?'Трубы в щиток':'Трубы на выход'}</div><table>${R.nA?`<tr><td>Пришло ${R.two?'слева':'с одной стороны'}</td><td><b>${R.nA} тр.</b></td></tr>`:''}${R.nB?`<tr><td>Пришло справа</td><td><b>${R.nB} тр.</b></td></tr>`:''}<tr><td>Всего ${pOn()?'у щитка':'на выходе'} (стена ${R.pw+1})</td><td><b>${R.N} тр.</b></td></tr></table>`;
         if(CR.n>1)body+=`<div class="q">Трубы на стыках стен</div><table>${withRoom(CR,()=>[...Array(CR.n-1).keys()].map(i=>`<tr><td>Стена ${i+1} → ${i+2}</td><td>${cntAt(R,R.cum[i+1])} тр.</td></tr>`).join(''))}</table>`;
       }
@@ -599,7 +636,7 @@ function popTot(){
 
 /* ---------- действия ---------- */
 function redraw(){syncPairs();renderTop();renderRails();renderDock();renderPop();draw3d();renderEmpty();save();}
-function near(d){const o=curO();if(!o)return;const w=CR.w[o.wi],b=mkBox(clamp(o.b.x+d*50,0,w.len),'o');w.b.push(b);w.touched=true;S.pop={k:'box',id:b.id,tab:'comp'};redraw();}
+function near(d){const o=curO();if(!o)return;const w=CR.w[o.wi],b=mkBox(clamp(o.b.x+d*50,0,w.len),'o');w.b.push(b);w.touched=true;S.pop={k:'box',id:b.id,tab:'pos'};redraw();}
 function nudge(d){const o=curO();if(!o)return;o.b.x=clamp(o.b.x+d,0,CR.w[o.wi].len);CR.w[o.wi].touched=true;redraw();}
 function ehSet(k,v){const o=curO();if(!o)return;const b=o.b;b.eh=b.eh||[];b.eh[k]=v===''?null:clamp(num(v),0,CR.w[o.wi].h);CR.w[o.wi].touched=true;redraw();}
 function ehAdd(k,d){const o=curO();if(o)ehSet(k,elH(o.b,k)+d);}
