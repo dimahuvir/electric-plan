@@ -101,6 +101,18 @@ ol.tl{margin:4px 0 0;padding-left:20px;font-size:13px}
 .rv svg,.jbw svg{display:block;margin:0 auto;width:100%;max-width:300px}
 .pv{background:#e8b100;border:1.5px solid #000;margin:6px 0;display:flex;align-items:center;justify-content:center;font:bold 11px sans-serif;color:#000}
 textarea{width:100%;height:150px;font-size:12px}
+#scan{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+#scan[hidden]{display:none}
+.sch{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:2px solid var(--acc);background:var(--card)}
+.sch b{font-size:15px}
+#scc{flex:1;min-height:0;position:relative;background:#1c1f2b;overflow:hidden}
+.scn{padding:6px 10px calc(8px + env(safe-area-inset-bottom,0px));background:var(--card);border-top:2px solid var(--acc)}
+#scm{position:absolute;inset:0;pointer-events:none}
+.sm{position:absolute;width:32px;height:32px;margin:-16px 0 0 -16px;border-radius:50%;background:var(--card);border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;touch-action:none;pointer-events:auto}
+.sm.sel{outline:3px solid #ffd400}
+.scb{display:flex;flex-direction:column;align-items:flex-start;width:100%;margin:8px 0;padding:12px;text-align:left}
+.scb small{font-weight:normal;font-size:12px;opacity:.9}
+#toast{position:fixed;left:50%;transform:translateX(-50%);top:72px;max-width:90vw;background:#222;color:#fff;padding:10px 14px;border-radius:10px;z-index:80;opacity:0;transition:opacity .2s;pointer-events:none;font-size:14px;text-align:center}
 .wgrid{display:grid;grid-template-columns:48px 1fr 1fr;gap:6px;align-items:center;margin:4px 0}
 .wgrid input{width:100%;padding:6px 8px}
 .wgrid .hd{font-size:11px;color:var(--sub)}
@@ -120,6 +132,7 @@ textarea{width:100%;height:150px;font-size:12px}
 <div id="dock"></div>
 </div>
 <div id="pop" hidden></div>
+<div id="scan" hidden></div><input type="file" id="scanf" accept="image/*" hidden><div id="toast"></div>
 <script>window.onerror=function(m,u,l){var e=document.getElementById("empty");if(e){e.style.color="#e53935";e.innerHTML="Ошибка: "+m+" (строка "+l+")";}};</script>
 <script>
 let K=.5,U=1,Q=1,FIT=1,uid=1;
@@ -342,7 +355,7 @@ function renderTop(){
   $('top').innerHTML=`<button class="go" onclick="openPop('rooms')">🏠 ${esc(CR.name)} ▾</button><span class="grow"></span><span class="sv">${S.saved?'● сохранено':'не сохраняется'}</span><button onclick="openPop('tot')">📊 Итоги</button><button onclick="openPop('room')">⚙</button>`;
 }
 function renderRails(){
-  $('lrail').innerHTML=`<div class="rl">Стена</div>`+[...Array(CR.n).keys()].map(i=>`<button class="wb ${S.cw==i?'on':''}" onclick="S.cw=${i};redraw()">${i+1}</button>`).join('')+`<button class="wb" onclick="openPop('trunk')">⇕<small>труба</small></button>`;
+  $('lrail').innerHTML=`<div class="rl">Стена</div>`+[...Array(CR.n).keys()].map(i=>`<button class="wb ${S.cw==i?'on':''}" onclick="S.cw=${i};redraw()">${i+1}</button>`).join('')+`<button class="wb" onclick="openPop('trunk')">⇕<small>труба</small></button><button class="wb" onclick="openPop('scan')">📷<small>скан</small></button>`;
   $('rrail').innerHTML=TYPES.map(t=>`<button class="tbn" style="--c:${TC[t]}" onclick="addQuick('${t}')">${symSvg(t,30)}<small>${TB[t]}</small></button>`).join('')+
   `<button class="ct" onclick="S.qg=S.qg%4+1;redraw()">×${S.qg}<small>в группе</small></button>`+
   `<button class="ct" onclick="S.qo=S.qo=='h'?'v':'h';redraw()">${S.qo=='h'?'↔':'↕'}<small>как стоят</small></button>`+
@@ -387,7 +400,7 @@ function renderPop(){
   const el=$('pop'),p=S.pop;
   if(!p){el.hidden=true;pkey='';S.shift=0;document.body.classList.remove('hs');return;}
   let r=null;
-  if(p.k=='box')r=popBox(p);else if(p.k=='jb')r=popJb(p);else if(p.k=='panel')r=popPanel();else if(p.k=='rooms')r=popRooms();else if(p.k=='room')r=popRoom();else if(p.k=='tot')r=popTot();else if(p.k=='io')r=popIo();else if(p.k=='trunk')r=popTrunk();
+  if(p.k=='box')r=popBox(p);else if(p.k=='jb')r=popJb(p);else if(p.k=='panel')r=popPanel();else if(p.k=='rooms')r=popRooms();else if(p.k=='room')r=popRoom();else if(p.k=='tot')r=popTot();else if(p.k=='io')r=popIo();else if(p.k=='trunk')r=popTrunk();else if(p.k=='scan')r=popScan();
   if(!r){S.pop=null;el.hidden=true;S.shift=0;document.body.classList.remove('hs');return;}
   const key=p.k+':'+(p.id||'')+':'+(p.tab||''),old=$('popc'),sc=key==pkey&&old?old.scrollTop:0;pkey=key;
   el.hidden=false;el.className=r.modal?'modal':'sheet';
@@ -657,6 +670,205 @@ function eb(f,v){const o=curO();if(!o)return;const b=o.b,w=CR.w[o.wi];w.touched=
   else b[f]=v;
   redraw();}
 
+
+/* ---------- скан стены ---------- */
+const SM={1:'Разметка на стене',2:'Стена с трубами и коробками',3:'Чертёж / 3D-чертёж'};
+const SH={1:'Фото или скан стены, на которой карандашом или краской уже нарисовано, что и где будет.',2:'Фото стен с уже проложенными трубами и коробками.',3:'Снимок чертежа или 3D-чертежа. Отметишь углы нужной стены, даже если она нарисована под углом.'};
+let SC=null;
+function toast(m){const e=$('toast');e.textContent=m;e.style.opacity=1;clearTimeout(toast.t);toast.t=setTimeout(()=>{e.style.opacity=0;},3600);}
+function popScan(){
+  const w=CW();
+  return {modal:true,title:'📷 Скан стены',tabs:'',body:`<div class="hint">Снимок для стены ${S.cw+1} (${w.len}×${w.h} см). Потом отметишь 4 угла стены: приложение само поймёт размеры, найдёт метки и расставит коробки. Тебе останется только поправить.</div>`+
+  [1,2,3].map(m=>`<button class="go scb" onclick="scanStart(${m})"><b>${m}. ${SM[m]}</b><small>${SH[m]}</small></button>`).join('')};
+}
+function scanStart(m){
+  S.pop=null;redraw();
+  const w=CR.w[S.cw];
+  SC={mode:m,wi:S.cw,pts:[],drag:null,phase:'corners',marks:[],sel:null,tool:'add',at:'o',sens:50,tz:null,panel:null,replace:false,len:w.len,h:w.h,pd:null};
+  const f=$('scanf');f.value='';f.click();
+}
+$('scanf').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(f&&SC)scanLoad(f);});
+function scanLoad(file){
+  const img=new Image();
+  img.onload=()=>{
+    const k=Math.min(1,1800/Math.max(img.width,img.height)),c=document.createElement('canvas');
+    c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    URL.revokeObjectURL(img.src);
+    if(!SC)return;SC.img=c;SC.phase='corners';SC.pts=[];scanRender();
+  };
+  img.onerror=()=>{toast('Не удалось открыть фото');SC=null;};
+  img.src=URL.createObjectURL(file);
+}
+function scanClose(){SC=null;const e=$('scan');e.hidden=true;e.innerHTML='';}
+function scanRetake(){const m=SC.mode;scanClose();scanStart(m);}
+function scanRender(){
+  const el=$('scan');
+  if(!SC||!SC.img){el.hidden=true;return;}
+  el.hidden=false;
+  const c=SC.phase=='corners';
+  el.innerHTML=`<div class="sch"><b>${c?'Шаг 1 из 2 · углы стены':'Шаг 2 из 2 · метки'}</b><span class="hint" style="flex:1;margin:0">${SM[SC.mode]} · стена ${SC.wi+1}</span><button class="x" onclick="scanClose()" aria-label="Закрыть">✕</button></div><div id="scc"></div><div id="sctb"></div>`;
+  requestAnimationFrame(()=>{scanFit();scanToolbar();});
+}
+function scanFit(){
+  const c=$('scc');if(!c||!SC)return;const cw=c.clientWidth,ch=c.clientHeight;
+  if(SC.phase=='corners'){
+    SC.k=Math.min(cw/SC.img.width,ch/SC.img.height);
+    const cv=document.createElement('canvas');cv.width=Math.round(SC.img.width*SC.k);cv.height=Math.round(SC.img.height*SC.k);
+    cv.style.cssText=`position:absolute;left:${(cw-cv.width)/2}px;top:${(ch-cv.height)/2}px;touch-action:none`;
+    c.innerHTML='';c.appendChild(cv);SC.cv=cv;
+    cv.onpointerdown=cornerDown;cv.onpointermove=cornerMove;cv.onpointerup=cv.onpointercancel=cornerUp;
+    drawCorners();
+  }else{
+    const k2=Math.min(cw/SC.len,ch/SC.h);SC.k2=k2;
+    const w=Math.round(SC.len*k2),h=Math.round(SC.h*k2);
+    c.innerHTML=`<div id="scw" style="position:absolute;left:${(cw-w)/2}px;top:${(ch-h)/2}px;width:${w}px;height:${h}px;touch-action:none"><canvas id="scb" width="${w}" height="${h}"></canvas><div id="scm"></div></div>`;
+    SC.base=$('scb');const sw=$('scw');sw.onpointerdown=markDown;sw.onpointermove=markMove;sw.onpointerup=sw.onpointercancel=markUp;
+    drawBase();scanMarkers();
+  }
+}
+function cpos(e){const r=SC.cv.getBoundingClientRect();return [(e.clientX-r.left)/SC.k,(e.clientY-r.top)/SC.k];}
+function cornerDown(e){
+  const [x,y]=cpos(e),k=SC.k,hit=SC.pts.findIndex(p=>Math.hypot(p[0]-x,p[1]-y)*k<28);
+  if(hit>=0)SC.drag=hit;else if(SC.pts.length<4){SC.pts.push([x,y]);SC.drag=SC.pts.length-1;}else return;
+  SC.cv.setPointerCapture(e.pointerId);drawCorners();
+}
+function cornerMove(e){if(SC.drag==null)return;SC.pts[SC.drag]=cpos(e);drawCorners();}
+function cornerUp(){SC.drag=null;drawCorners();scanToolbar();}
+function drawCorners(){
+  const cv=SC.cv,ctx=cv.getContext('2d'),k=SC.k,P=SC.pts;
+  ctx.clearRect(0,0,cv.width,cv.height);ctx.drawImage(SC.img,0,0,cv.width,cv.height);
+  if(P.length>1){ctx.strokeStyle='#ffd400';ctx.lineWidth=2;ctx.beginPath();P.forEach((p,i)=>i?ctx.lineTo(p[0]*k,p[1]*k):ctx.moveTo(p[0]*k,p[1]*k));if(P.length==4)ctx.closePath();ctx.stroke();}
+  P.forEach((p,i)=>{ctx.fillStyle=i==SC.drag?'#e53935':'#ffd400';ctx.beginPath();ctx.arc(p[0]*k,p[1]*k,10,0,7);ctx.fill();ctx.fillStyle='#000';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText(i+1,p[0]*k,p[1]*k+4);});
+  if(SC.drag!=null){
+    const p=P[SC.drag],R=50,z=3,lx=p[0]*k<cv.width/2?cv.width-R-8:R+8,ly=R+8,sw=2*R/(z*k);
+    ctx.save();ctx.beginPath();ctx.arc(lx,ly,R,0,7);ctx.clip();ctx.drawImage(SC.img,p[0]-sw/2,p[1]-sw/2,sw,sw,lx-R,ly-R,2*R,2*R);
+    ctx.strokeStyle='#e53935';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(lx-R,ly);ctx.lineTo(lx+R,ly);ctx.moveTo(lx,ly-R);ctx.lineTo(lx,ly+R);ctx.stroke();ctx.restore();
+    ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(lx,ly,R,0,7);ctx.stroke();
+  }
+}
+function solve8(A,b){const n=8,M=A.map((r,i)=>[...r,b[i]]);for(let i=0;i<n;i++){let p=i;for(let r=i+1;r<n;r++)if(Math.abs(M[r][i])>Math.abs(M[p][i]))p=r;[M[i],M[p]]=[M[p],M[i]];const d=M[i][i]||1e-9;for(let c=i;c<=n;c++)M[i][c]/=d;for(let r=0;r<n;r++)if(r!=i){const f=M[r][i];for(let c=i;c<=n;c++)M[r][c]-=f*M[i][c];}}return M.map(r=>r[n]);}
+function scanRectify(){
+  const len=SC.len,h=SC.h,ppc=Math.min(2,1400/Math.max(len,h)),W=Math.round(len*ppc),H=Math.round(h*ppc);
+  const dst=[[0,0],[W,0],[W,H],[0,H]],A=[],B=[];
+  dst.forEach(([u,v],i)=>{const [x,y]=SC.pts[i];A.push([u,v,1,0,0,0,-u*x,-v*x]);B.push(x);A.push([0,0,0,u,v,1,-u*y,-v*y]);B.push(y);});
+  const q=solve8(A,B),sc=SC.img,sw=sc.width,sh=sc.height,sd=sc.getContext('2d').getImageData(0,0,sw,sh).data;
+  const rc=document.createElement('canvas');rc.width=W;rc.height=H;
+  const rx=rc.getContext('2d'),od=rx.createImageData(W,H),o=od.data;
+  for(let j=0;j<H;j++)for(let i=0;i<W;i++){
+    const dd=q[6]*i+q[7]*j+1,x=Math.min(sw-1.001,Math.max(0,(q[0]*i+q[1]*j+q[2])/dd)),y=Math.min(sh-1.001,Math.max(0,(q[3]*i+q[4]*j+q[5])/dd));
+    const x0=x|0,y0=y|0,fx=x-x0,fy=y-y0,a=(y0*sw+x0)*4,b=a+4,c=a+sw*4,e=c+4,p=(j*W+i)*4;
+    for(let k=0;k<3;k++)o[p+k]=(sd[a+k]*(1-fx)+sd[b+k]*fx)*(1-fy)+(sd[c+k]*(1-fx)+sd[e+k]*fx)*fy;
+    o[p+3]=255;}
+  rx.putImageData(od,0,0);SC.rc=rc;SC.ppc=ppc;
+}
+function scanToMarks(){
+  if(SC.pts.length<4)return;
+  scanRectify();SC.phase='marks';SC.marks=[];SC.sel=null;scanRender();
+  setTimeout(()=>{if(SC&&SC.phase=='marks')scanDetect();},60);
+}
+function drawBase(){
+  const cv=SC.base,ctx=cv.getContext('2d'),k=SC.k2;
+  ctx.textAlign='left';ctx.setLineDash([]);ctx.drawImage(SC.rc,0,0,cv.width,cv.height);
+  ctx.strokeStyle='rgba(255,255,255,.4)';ctx.fillStyle='#fff';ctx.font='10px sans-serif';ctx.lineWidth=1;
+  for(let x=50;x<SC.len;x+=50){ctx.beginPath();ctx.moveTo(x*k,0);ctx.lineTo(x*k,cv.height);ctx.stroke();ctx.fillText(x,x*k+2,10);}
+  for(let h=50;h<SC.h;h+=50){const y=(SC.h-h)*k;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cv.width,y);ctx.stroke();ctx.fillText(h,2,y-2);}
+  if(SC.tz!=null){const y=(SC.h-SC.tz)*k;ctx.strokeStyle='#ff9800';ctx.lineWidth=3;ctx.setLineDash([8,5]);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cv.width,y);ctx.stroke();ctx.setLineDash([]);}
+  if(SC.panel){const x=SC.panel.x*k,y=(SC.h-SC.panel.h)*k;ctx.fillStyle='#444';ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.fillRect(x-14,y-11,28,22);ctx.strokeRect(x-14,y-11,28,22);ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.fillText('Щ',x,y+5);}
+}
+function scanMarkers(){const m=$('scm');if(!m||!SC)return;m.innerHTML=SC.marks.map((q,i)=>`<div class="sm ${i==SC.sel?'sel':''}" data-i="${i}" style="left:${q.x*SC.k2}px;top:${(SC.h-q.h)*SC.k2}px">${symSvg(q.t,20)}</div>`).join('');}
+function scanPos(e){const r=$('scw').getBoundingClientRect();return {x:clamp((e.clientX-r.left)/SC.k2,0,SC.len),h:clamp(SC.h-(e.clientY-r.top)/SC.k2,0,SC.h)};}
+function markDown(e){
+  const m=e.target.closest&&e.target.closest('.sm');
+  SC.pd={x:e.clientX,y:e.clientY,moved:false,i:m?+m.dataset.i:null};
+  if(m){SC.sel=SC.pd.i;SC.at=SC.marks[SC.sel].t;scanMarkers();scanToolbar();}
+  $('scw').setPointerCapture(e.pointerId);
+}
+function markMove(e){
+  const d=SC.pd;if(!d)return;
+  if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>6)d.moved=true;
+  if(d.i!=null&&d.moved){const p=scanPos(e),m=SC.marks[d.i];m.x=p.x;m.h=p.h;m.auto=false;scanMarkers();}
+}
+function markUp(e){
+  const d=SC.pd;SC.pd=null;if(!d)return;
+  if(d.i!=null){scanToolbar();return;}
+  if(d.moved)return;
+  const p=scanPos(e);
+  if(SC.tool=='pipe'){SC.tz=Math.round(p.h);SC.tool='add';drawBase();scanToolbar();return;}
+  if(SC.tool=='panel'){SC.panel={x:Math.round(p.x),h:Math.round(p.h)};SC.tool='add';drawBase();scanToolbar();return;}
+  SC.marks.push({x:p.x,h:p.h,t:SC.at,auto:false});SC.sel=SC.marks.length-1;scanMarkers();scanToolbar();
+}
+function scanType(t){SC.at=t;if(SC.sel!=null&&SC.marks[SC.sel]){SC.marks[SC.sel].t=t;SC.marks[SC.sel].auto=false;scanMarkers();}scanToolbar();}
+function scanDel(){if(SC.sel!=null){SC.marks.splice(SC.sel,1);SC.sel=null;scanMarkers();scanToolbar();}}
+function scanToolbar(){
+  const tb=$('sctb');if(!tb||!SC)return;
+  if(SC.phase=='corners'){
+    tb.innerHTML=`<div class="scn"><div class="hint" style="margin:0">Тапни 4 угла стены по порядку: верхний левый, верхний правый, нижний правый, нижний левый (${SC.pts.length} из 4). Точку можно двигать пальцем.</div>`+
+    `<div class="row" style="margin:6px 0"><label>Длина стены, см<input type="number" value="${SC.len}" onchange="SC.len=Math.max(50,num(this.value))"></label><label>Высота, см<input type="number" value="${SC.h}" onchange="SC.h=Math.max(50,num(this.value))"></label></div>`+
+    `<div class="row" style="margin:6px 0"><button onclick="SC.pts=[];drawCorners();scanToolbar()">Сбросить</button><button class="go" ${SC.pts.length==4?'':'disabled'} onclick="scanToMarks()">Дальше →</button><button onclick="scanRetake()">Другое фото</button></div></div>`;
+    return;}
+  const sel=SC.sel!=null?SC.marks[SC.sel]:null;
+  tb.innerHTML=`<div class="scn"><div class="seg" style="margin:0">${TYPES.map(t=>`<button class="tb ${SC.at==t?'on':''}" style="--c:${TC[t]}" onclick="scanType('${t}')">${symSvg(t,22)}</button>`).join('')}</div>`+
+  `<div class="hint" style="margin:4px 0">${sel?`Выбрана: ${Math.round(sel.x)} см от левого края, высота ${Math.round(sel.h)} см. Двигай пальцем.`:`Тап по стене — поставить «${TS[SC.at]}». Меток: ${SC.marks.length}.`}${SC.tool=='pipe'?' Тапни на горизонтальной трубе.':SC.tool=='panel'?' Тапни на щитке.':''}</div>`+
+  `<div class="btns2"><button onclick="scanDetect()">🔍 Найти</button><button onclick="scanDel()">🗑</button><button class="${SC.tool=='pipe'?'on':''}" onclick="SC.tool=SC.tool=='pipe'?'add':'pipe';scanToolbar()">⇕ Труба${SC.tz!=null?' '+Math.round(SC.tz):''}</button><button class="${SC.tool=='panel'?'on':''}" onclick="SC.tool=SC.tool=='panel'?'add':'panel';scanToolbar()">▮ Щиток</button></div>`+
+  `<div class="row" style="margin:6px 0;align-items:center"><label style="flex:1">Чувствительность<input type="range" min="0" max="100" value="${SC.sens}" oninput="SC.sens=+this.value" onchange="scanDetect()"></label><button onclick="SC.replace=!SC.replace;scanToolbar()">${SC.replace?'Заменить':'Добавить'}</button><button class="go" onclick="scanImport()">✓ На стену</button></div></div>`;
+}
+function scanDetect(){
+  if(!SC||!SC.rc)return;
+  const cv=SC.rc,W=cv.width,H=cv.height,ppc=SC.ppc,d=cv.getContext('2d').getImageData(0,0,W,H).data;
+  const sm=[[],[],[]];for(let i=0;i<W*H;i+=29){sm[0].push(d[i*4]);sm[1].push(d[i*4+1]);sm[2].push(d[i*4+2]);}
+  const med=a=>a.sort((x,y)=>x-y)[a.length>>1],br=med(sm[0]),bg=med(sm[1]),bb=med(sm[2]),bl=(br+bg+bb)/3;
+  const thr=Math.max(16,95-SC.sens*.85),cell=Math.max(3,Math.round(ppc*1.5)),cw=Math.ceil(W/cell),ch=Math.ceil(H/cell),grid=new Uint8Array(cw*ch);
+  for(let y=0;y<H;y+=2){for(let x=0;x<W;x+=2){
+    const i=(y*W+x)*4,r=d[i],g=d[i+1],b=d[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b),sat=mx?(mx-mn)/mx:0,df=Math.max(Math.abs(r-br),Math.abs(g-bg),Math.abs(b-bb));
+    let on;
+    if(SC.mode==1)on=(sat>.5&&mx>90&&df>thr*.8)||(mx<bl*.55&&df>thr);
+    else if(SC.mode==2)on=df>thr*1.1;
+    else on=mx<bl*.6&&df>thr;
+    if(on){const c=((y/cell)|0)*cw+((x/cell)|0);if(grid[c]<255)grid[c]++;}}}
+  const need=Math.max(1,Math.round(cell*cell/4*.15)),seen=new Uint8Array(cw*ch),found=[];
+  for(let s0=0;s0<cw*ch;s0++){
+    if(seen[s0]||grid[s0]<need)continue;
+    const st=[s0];seen[s0]=1;let n=0,sx=0,sy=0,x0=1e9,x1=-1,y0=1e9,y1=-1;
+    while(st.length){const c=st.pop(),cx=c%cw,cy=(c/cw)|0;n++;sx+=cx;sy+=cy;if(cx<x0)x0=cx;if(cx>x1)x1=cx;if(cy<y0)y0=cy;if(cy>y1)y1=cy;
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const nx=cx+dx,ny=cy+dy;if(nx<0||ny<0||nx>=cw||ny>=ch)continue;const q=ny*cw+nx;if(!seen[q]&&grid[q]>=need){seen[q]=1;st.push(q);}}}
+    const wcm=(x1-x0+1)*cell/ppc,hcm=(y1-y0+1)*cell/ppc,fill=n/((x1-x0+1)*(y1-y0+1)),big=Math.max(wcm,hcm),small=Math.min(wcm,hcm);
+    if(x0<=0||y0<=0||x1>=cw-1||y1>=ch-1)continue;
+    let ok;
+    if(SC.mode==1)ok=big>=3&&big<=25&&small>=2;
+    else if(SC.mode==2)ok=big>=4&&big<=16&&small>=3&&big/small<=2&&fill>=.4;
+    else{const lo=Math.max(2,SC.len*.012),hi=SC.len*.09;ok=big>=lo&&big<=hi;}
+    if(ok)found.push({n,x:(sx/n+.5)*cell/ppc,h:SC.h-(sy/n+.5)*cell/ppc});
+  }
+  found.sort((a,b)=>b.n-a.n);
+  SC.marks=SC.marks.filter(m=>!m.auto).concat(found.slice(0,60).map(f=>({x:f.x,h:f.h,t:SC.at,auto:true})));
+  SC.sel=null;scanMarkers();scanToolbar();
+  toast(found.length?'Найдено меток: '+found.length+'. Проверь, поправь, тип можно поменять.':'Метки не нашлись. Поставь вручную тапом или поменяй чувствительность.');
+}
+function scanImport(){
+  if(!SC)return;
+  const w=CR.w[SC.wi];
+  if(SC.len!=w.len||SC.h!=w.h){w.len=Math.max(10,SC.len);w.h=Math.max(10,SC.h);}
+  if(SC.replace)w.b=[];
+  const ms=SC.marks.map(m=>Object.assign({},m)),n=ms.length,par=ms.map((_,i)=>i);
+  const find=i=>par[i]==i?i:(par[i]=find(par[i]));
+  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)if(Math.hypot(ms[i].x-ms[j].x,ms[i].h-ms[j].h)<=9.5)par[find(i)]=find(j);
+  const groups={};ms.forEach((m,i)=>{const r=find(i);(groups[r]=groups[r]||[]).push(m);});
+  let made=0;
+  Object.keys(groups).forEach(key=>{
+    const g=groups[key].slice(0,6),xs=g.map(m=>m.x),hs=g.map(m=>m.h),vx=Math.max(...xs)-Math.min(...xs),vh=Math.max(...hs)-Math.min(...hs),vert=g.length>1&&vh>vx;
+    g.sort((a,b)=>vert?b.h-a.h:a.x-b.x);
+    const cx=xs.reduce((a,b)=>a+b,0)/g.length,chh=hs.reduce((a,b)=>a+b,0)/g.length;
+    const b=mkBox(Math.round(clamp(cx,0,w.len)),g[0].t);b.ts=g.map(m=>m.t);b.or=vert?'v':'h';b.hc=Math.round(chh);
+    if(g.length>1){b.eh=g.map(m=>Math.round(m.h));const sp=vert?vh:vx;b.gp=clamp(Math.round(sp/(g.length-1)*10)/10,7,60);}
+    w.b.push(b);made++;
+  });
+  w.touched=true;
+  if(SC.tz!=null)w.tz=clamp(Math.round(SC.tz),20,w.h-5);
+  if(SC.panel){CR.p.on=true;CR.p.w=SC.wi;CR.p.x=clamp(Math.round(SC.panel.x),0,w.len);CR.p.h=Math.round(SC.panel.h);}
+  const wi=SC.wi;scanClose();S.cw=wi;redraw();
+  toast('На стену '+(wi+1)+' добавлено мест: '+made+'. Размеры и высоты можно поправить в окне каждой коробки.');
+}
+
 /* ---------- жесты: вращение, щипок, тап ---------- */
 const st=$('stage'),ptr=new Map();let pd=null,mv=false,pdist=0,zq=0,pmid=null;
 const dist2=()=>{const a=[...ptr.values()];return a.length<2?0:Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);};
@@ -679,6 +891,6 @@ $('zp').onclick=()=>{S.z=clamp(S.z*1.25,.3,6);draw3d();};
 $('zm').onclick=()=>{S.z=clamp(S.z/1.25,.3,6);draw3d();};
 $('zr').onclick=()=>{S.z=1;S.px=0;S.py=0;S.vx=-25;S.vy=-35;draw3d();};
 window.addEventListener('resize',draw3d);
-window.appBack=()=>{if(S.pop){closePop();return true;}return false;};
+window.appBack=()=>{if(SC){scanClose();return true;}if(S.pop){closePop();return true;}return false;};
 redraw();
 </script></body></html>
